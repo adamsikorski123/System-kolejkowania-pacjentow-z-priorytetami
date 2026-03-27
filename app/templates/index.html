@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="pl">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Rejestr pacjentów</title>
+</head>
+<body>
+	<h1>Dodaj pacjenta</h1>
+
+	<form method="post" action="/">
+		<label for="first_name">Imię:</label>
+		<input id="first_name" name="first_name" type="text" required />
+
+		<label for="last_name">Nazwisko:</label>
+		<input id="last_name" name="last_name" type="text" required />
+
+		<button type="submit">Zapisz</button>
+	</form>
+
+	{% if error %}
+		<p style="color: red;">{{ error }}</p>
+	{% endif %}
+
+	<h2>Zapisani pacjenci</h2>
+	{% if patients %}
+		<ul>
+			{% for patient in patients %}
+				<li>{{ patient.full_name }}</li>
+			{% endfor %}
+		</ul>
+	{% else %}
+		<p>Brak zapisanych pacjentów.</p>
+	{% endif %}
+</body>
+</html>
