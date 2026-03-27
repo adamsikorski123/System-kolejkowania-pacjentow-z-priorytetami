@@ -54,3 +54,6 @@ class PatientFormView(MethodView):
 
 
 app.add_url_rule('/', view_func=PatientFormView.as_view('patient_form'), methods=['GET', 'POST'])
+
+
+##dara 
