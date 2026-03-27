@@ -1,36 +1,109 @@
 <!doctype html>
 <html lang="pl">
 <head>
-	<meta charset="UTF-8" />
-	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-	<title>Rejestr pacjentów</title>
+    <meta charset="UTF-8" />
+    <title>System Kolejkowy</title>
 </head>
-<body>
-	<h1>Dodaj pacjenta</h1>
+<body style="font-family: Arial, sans-serif; max-width: 600px; margin: auto;">
 
-	<form method="post" action="/">
-		<label for="first_name">Imię:</label>
-		<input id="first_name" name="first_name" type="text" required />
+    <h1>Rejestracja</h1>
+    <form method="post" action="/">
+        <input name="first_name" placeholder="Imię" required />
+        <input name="last_name" placeholder="Nazwisko" required />
+        <button type="submit">Zarejestruj</button>
+    </form>
 
-		<label for="last_name">Nazwisko:</label>
-		<input id="last_name" name="last_name" type="text" required />
+    <hr>
 
-		<button type="submit">Zapisz</button>
-	</form>
+    <div style="background-color: #d1ecf1; border: 2px solid #0c5460; padding: 15px; border-radius: 5px; margin: 20px 0;">
+        <h3 style="margin-top: 0;">Aktualnie przyjmowany:</h3>
+        {% if current %}
+    <p style="font-size: 1.2em;"><strong>{{ current.full_name }}</strong> </p>
+        {% else %}
+            <p>Gabinet wolny - naciśnij przycisk poniżej.</p>
+        {% endif %}
+    </div>
 
-	{% if error %}
-		<p style="color: red;">{{ error }}</p>
-	{% endif %}
+    <h2>Kolejka:</h2>
+    {% if patients %}
 
-	<h2>Zapisani pacjenci</h2>
-	{% if patients %}
-		<ul>
-			{% for patient in patients %}
-				<li>{{ patient.full_name }}</li>
-			{% endfor %}
-		</ul>
-	{% else %}
-		<p>Brak zapisanych pacjentów.</p>
-	{% endif %}
+	<p style="font-weight: bold; color: #555;">
+            Łącznie w kolejce: {{ patients|length }} 
+            {% if patients|length > 3 %}
+            {% endif %}
+        </p>
+
+	<div id="cooldown-container" style="margin-bottom: 15px; display: none;">
+            <p style="margin: 5px 0; font-size: 0.9em; color: #666;">Przygotowanie gabinetu...</p>
+            <div style="width: 100%; background-color: #eee; height: 10px; border-radius: 5px; overflow: hidden;">
+                <div id="progress-bar" style="width: 100%; height: 100%; background-color: #28a745; transition: width 0.1s linear;"></div>
+            </div>
+        </div>
+
+        <form method="post" action="/admit">
+            <button type="submit" id="admitBtn" style="background: #28a745; color: white; border: none; padding: 10px; cursor: pointer;">
+                PRZYJMIJ NASTĘPNEGO
+            </button>
+			<span id="timer" style="margin-left: 10px; color: red; font-weight: bold;"></span>
+        </form>
+
+		<script>
+            const btn = document.getElementById('admitBtn');
+            const barContainer = document.getElementById('cooldown-container');
+            const progressBar = document.getElementById('progress-bar');
+            
+            // Pobieramy czas oczekiwania z Pythona (przekazany przez Jinja2)
+            let waitTime = {{ wait_time }}; 
+            const totalTime = 5; // Całkowity czas blokady w sekundach
+
+            if (waitTime > 0) {
+                // Jeśli musimy czekać, blokujemy przycisk i pokazujemy pasek
+                btn.disabled = true;
+                btn.style.background = "#ccc";
+                btn.style.cursor = "not-allowed";
+                barContainer.style.display = "block";
+
+                let remaining = waitTime;
+                const interval = setInterval(() => {
+                    remaining -= 0.1;
+                    const percentage = (remaining / totalTime) * 100;
+                    progressBar.style.width = percentage + "%";
+
+                    if (remaining <= 0) {
+                        clearInterval(interval);
+                        btn.disabled = false;
+                        btn.style.background = "#28a745";
+                        btn.style.cursor = "pointer";
+                        barContainer.style.display = "none";
+                    }
+                }, 100);
+            }
+
+            // Obsługa kliknięcia (blokada natychmiastowa)
+            document.getElementById('admitForm').onsubmit = function() {
+                btn.disabled = true;
+                btn.innerHTML = "Przetwarzanie...";
+            };
+        </script>
+
+        <ol>
+            {# Używamy filtra 'slice(3)', aby pokazać tylko pierwsze 3 elementy #}
+            {% for patient in patients[:3] %}
+                <li>
+                    <strong>{{ patient.full_name }}</strong> 
+                    <span style="color: #888; font-size: 0.8em;"></span>
+                </li>
+            {% endfor %}
+        </ol>
+
+        {% if patients|length > 3 %}
+            <p style="font-style: italic; color: #999;">
+                ... oraz {{ patients|length - 3 }} osób oczekujących dalej.
+            </p>
+        {% endif %}
+
+    {% else %}
+        <p>Brak osób w kolejce.</p>
+    {% endif %}
 </body>
 </html>
