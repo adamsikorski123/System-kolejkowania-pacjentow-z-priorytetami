@@ -4,106 +4,84 @@
     <meta charset="UTF-8" />
     <title>System Kolejkowy</title>
 </head>
-<body style="font-family: Arial, sans-serif; max-width: 600px; margin: auto;">
+<body style="font-family: Arial, sans-serif; max-width: 600px; margin: auto;" data-wait-time='{{ wait_time|tojson }}' data-current-service-seconds='{{ current_service_seconds|tojson }}'>
 
-    <h1>Rejestracja</h1>
-    <form method="post" action="/">
-        <input name="first_name" placeholder="Imię" required />
-        <input name="last_name" placeholder="Nazwisko" required />
-        <button type="submit">Zarejestruj</button>
-    </form>
+    <h1>System kolejkowy pacjentów</h1>
 
-    <hr>
-
-    <div style="background-color: #d1ecf1; border: 2px solid #0c5460; padding: 15px; border-radius: 5px; margin: 20px 0;">
+    <div id="current-card" style="background-color: #d1ecf1; border: 2px solid #0c5460; padding: 15px; border-radius: 5px; margin: 20px 0;">
         <h3 style="margin-top: 0;">Aktualnie przyjmowany:</h3>
         {% if current %}
-    <p style="font-size: 1.2em;"><strong>{{ current.full_name }}</strong> </p>
+            <p id="current-name" style="font-size: 1.2em;"><strong>{{ current.full_name }}</strong></p>
+            <p id="current-meta" style="margin: 4px 0; color: #444;">
+                ID: {{ current.id if current.id is defined else '-' }} |
+                Płeć: {{ current.gender if current.gender is defined else '-' }} |
+                Przybycie: {{ current.arrival_time if current.arrival_time is defined else '-' }} |
+                Service: {{ current.service_time_seconds if current.service_time_seconds is not none else '-' }} s
+            </p>
+            <p id="current-empty" style="display: none;">Gabinet wolny - naciśnij przycisk poniżej.</p>
         {% else %}
-            <p>Gabinet wolny - naciśnij przycisk poniżej.</p>
+            <p id="current-empty">Gabinet wolny - naciśnij przycisk poniżej.</p>
+            <p id="current-name" style="display: none;"></p>
+            <p id="current-meta" style="display: none;"></p>
         {% endif %}
     </div>
 
     <h2>Kolejka:</h2>
-    {% if patients %}
 
-	<p style="font-weight: bold; color: #555;">
-            Łącznie w kolejce: {{ patients|length }} 
-            {% if patients|length > 3 %}
-            {% endif %}
+	<p id="queue-count" style="font-weight: bold; color: #555;">
+            Łącznie w kolejce: {{ patients|length }}
         </p>
 
 	<div id="cooldown-container" style="margin-bottom: 15px; display: none;">
-            <p style="margin: 5px 0; font-size: 0.9em; color: #666;">Przygotowanie gabinetu...</p>
+            <p style="margin: 5px 0; font-size: 0.9em; color: #666;">Przyjmowanie pacjenta...</p>
             <div style="width: 100%; background-color: #eee; height: 10px; border-radius: 5px; overflow: hidden;">
                 <div id="progress-bar" style="width: 100%; height: 100%; background-color: #28a745; transition: width 0.1s linear;"></div>
             </div>
         </div>
 
-        <form method="post" action="/admit">
+        <form method="post" action="/admit" id="admitForm">
             <button type="submit" id="admitBtn" style="background: #28a745; color: white; border: none; padding: 10px; cursor: pointer;">
                 PRZYJMIJ NASTĘPNEGO
             </button>
-			<span id="timer" style="margin-left: 10px; color: red; font-weight: bold;"></span>
+            <span id="timer" style="margin-left: 10px; color: red; font-weight: bold;"></span>
         </form>
 
-		<script>
-            const btn = document.getElementById('admitBtn');
-            const barContainer = document.getElementById('cooldown-container');
-            const progressBar = document.getElementById('progress-bar');
-            
-            // Pobieramy czas oczekiwania z Pythona (przekazany przez Jinja2)
-            let waitTime = {{ wait_time }}; 
-            const totalTime = 5; // Całkowity czas blokady w sekundach
-
-            if (waitTime > 0) {
-                // Jeśli musimy czekać, blokujemy przycisk i pokazujemy pasek
-                btn.disabled = true;
-                btn.style.background = "#ccc";
-                btn.style.cursor = "not-allowed";
-                barContainer.style.display = "block";
-
-                let remaining = waitTime;
-                const interval = setInterval(() => {
-                    remaining -= 0.1;
-                    const percentage = (remaining / totalTime) * 100;
-                    progressBar.style.width = percentage + "%";
-
-                    if (remaining <= 0) {
-                        clearInterval(interval);
-                        btn.disabled = false;
-                        btn.style.background = "#28a745";
-                        btn.style.cursor = "pointer";
-                        barContainer.style.display = "none";
-                    }
-                }, 100);
-            }
-
-            // Obsługa kliknięcia (blokada natychmiastowa)
-            document.getElementById('admitForm').onsubmit = function() {
-                btn.disabled = true;
-                btn.innerHTML = "Przetwarzanie...";
-            };
-        </script>
-
-        <ol>
-            {# Używamy filtra 'slice(3)', aby pokazać tylko pierwsze 3 elementy #}
-            {% for patient in patients[:3] %}
-                <li>
-                    <strong>{{ patient.full_name }}</strong> 
-                    <span style="color: #888; font-size: 0.8em;"></span>
-                </li>
-            {% endfor %}
-        </ol>
+        <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+            <thead>
+                <tr style="background: #f2f2f2;">
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">ID</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Płeć</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Imię i nazwisko</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Przybycie</th>
+                </tr>
+            </thead>
+            <tbody id="queue-body">
+                {% for patient in patients[:3] %}
+                    <tr>
+                        <td style="border: 1px solid #ddd; padding: 8px;">{{ patient.id if patient.id is defined else '-' }}</td>
+                        <td style="border: 1px solid #ddd; padding: 8px;">{{ patient.gender if patient.gender is defined else '-' }}</td>
+                        <td style="border: 1px solid #ddd; padding: 8px;">
+                            {{ patient.full_name if patient.full_name is defined else ((patient.first_name ~ ' ' ~ patient.last_name)|trim) }}
+                        </td>
+                        <td style="border: 1px solid #ddd; padding: 8px;">{{ patient.arrival_time if patient.arrival_time is defined else '-' }}</td>
+                    </tr>
+                {% endfor %}
+                {% if patients|length == 0 %}
+                    <tr>
+                        <td colspan="4" style="border: 1px solid #ddd; padding: 8px; color: #666;">Brak osób w kolejce.</td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
 
         {% if patients|length > 3 %}
-            <p style="font-style: italic; color: #999;">
+            <p id="queue-overflow" style="font-style: italic; color: #999;">
                 ... oraz {{ patients|length - 3 }} osób oczekujących dalej.
             </p>
+        {% else %}
+            <p id="queue-overflow" style="font-style: italic; color: #999; display: none;"></p>
         {% endif %}
 
-    {% else %}
-        <p>Brak osób w kolejce.</p>
-    {% endif %}
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>
