@@ -1,9 +1,9 @@
 # System-kolejkowania-pacjentow-z-priorytetami
 
 <p align="center">
-  <img src="app/static/img/pg_logo.jpg" alt="Logo Politechniki Gdańskiej" height="80"/>
+  <img src="app/static/img/pg_logo.jpg" alt="Logo Politechniki Gdańskiej" height="800"/>
   &nbsp;&nbsp;&nbsp;
-  <img src="app/static/img/kib_logo.png" alt="Logo KIB" height="80"/>
+  <img src="app/static/img/kib_logo.png" alt="Logo KIB" height="800"/>
 </p>
 
 
