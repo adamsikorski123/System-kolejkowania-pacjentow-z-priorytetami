@@ -15,7 +15,7 @@
 | **Etap** | Etap 1 – Implementacja bazowa (kolejka FIFO) |
 | **Rok studiów** | 3|
 | **Prowadzący** | dr inż. Anna Jezierska |
-| **Autorzy** | [Adam Sikorsi], [Mateusz Grochowalski] |
+| **Autorzy** | Adam Sikorsi, Mateusz Grochowalski |
 | **Uczelnia** | Politechnika Gdańska, Wydział ETI |
 | **Katedra** | Katedra Inżynierii Biomedycznej (KIB) |
 
