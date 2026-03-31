@@ -8,7 +8,7 @@
 
 
 ---
-
+| | |
 |---|---|
 | **Przedmiot** | RAIM – Rozwój aplikacji internetowych w medycynie (2025/2026) |
 | **Temat** | Temat 2 – System kolejkowania pacjentów z priorytetami |
