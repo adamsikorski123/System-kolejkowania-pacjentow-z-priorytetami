@@ -41,8 +41,9 @@ Niniejszy projekt symuluje system kolejkowania pacjentów oparty na priorytetach
 ### 1.2 Określenie użytkowników systemu
 
 
-**Pacjent** - Osoba dodawana do kolejki, dodanie do kolejki, podgląd realizacji przyjęcia
-**Operator medyczny** - Pielęgniarka/lekarz przyjmujący, przyjęcie następnego pacjenta, aktualizacja statusu
+**Pacjent** - Osoba dodawana do kolejki, dodanie do kolejki, podgląd realizacji przyjęcia.
+
+**Operator medyczny** - Pielęgniarka/lekarz przyjmujący, przyjęcie następnego pacjenta, aktualizacja statusu.
 
 ### 1.3 Analiza ryzyk
 
