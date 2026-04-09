@@ -3,23 +3,22 @@ import threading
 from flask import Flask, jsonify, redirect, render_template, url_for
 from flask_restful import Resource, Api
 from flask.views import MethodView
-
 from app.gen_patient import generate_next_patient_record
 
-app = Flask(__name__)
-api = Api(app)
+app = Flask(__name__)  # Tworzymy instancję aplikacji Flask
+api = Api(app) # Inicjalizujemy Flask-RESTful API, ale nie definiujemy jeszcze żadnych zasobów.
 
-#dhasjdfhasj
+# Prosty rejestr pacjentów, który przechowuje listę oczekujących pacjentów oraz aktualnie obsługiwanego pacjenta.
 class PatientRegistry:
-    """Simple in-memory registry for submitted full names."""
 
-    def __init__(self):
+    def __init__(self): # Inicjalizujemy rejestr pacjentów
         self._patients = []
         self._current_patient = None
         self._last_admit_time = 0
         self._current_service_seconds = 0
         self._lock = threading.Lock()
 
+    # Metoda do dodawania pacjenta do kolejki. Przyjmuje dane pacjenta i tworzy rekord, który jest dodawany do listy oczekujących pacjentów.
     def add_patient(self, first_name: str, last_name: str, admission_number: int, priority_number: int, arrival_time: float, gender: str) -> bool:
         with self._lock:
             self._patients.append({
@@ -35,31 +34,33 @@ class PatientRegistry:
             })
         return True
 
+    # Metoda do dodawania pacjenta wygenerowanego przez generator. Przyjmuje gotowy rekord pacjenta i dodaje go do listy oczekujących pacjentów.
     def add_generated_patient(self, patient_record: dict) -> bool:
         with self._lock:
             self._patients.append(patient_record)
         return True
 
+    # Metoda przenosząca pierwszego pacjenta z kolejki do pola 'current_patient'. Sprawdza, czy minął odpowiedni czas od ostatniego przyjęcia pacjenta (na podstawie czasu obsługi aktualnego pacjenta) i jeśli tak, to przenosi pierwszego pacjenta z listy oczekujących do pola 'current_patient' oraz aktualizuje czas ostatniego przyjęcia.
     def admit_patient(self):
-        """Przenosi pierwszego pacjenta z kolejki do pola 'current_patient'."""
         current_time = time.time()
         cooldown_seconds = max(0, int(self._current_service_seconds or 0))
         if current_time - self._last_admit_time < cooldown_seconds:
-            return False # Za wcześnie!
+            return False
 
         with self._lock:
             if self._patients:
                 self._current_patient = self._patients.pop(0)
                 current_service = self._current_patient.get("service_time_seconds")
                 self._current_service_seconds = int(current_service) if isinstance(current_service, (int, float)) else 5
-                self._last_admit_time = current_time # Aktualizujemy czas
+                self._last_admit_time = current_time 
                 return True
             return False
-
+    # Metoda zwracająca aktualnie obsługiwanego pacjenta.
     def get_current_patient(self):
         with self._lock:
             return self._current_patient
 
+    # Metoda zwracająca listę wszystkich oczekujących pacjentów.
     def all_patients(self):
         with self._lock:
             return list(self._patients)
@@ -70,7 +71,7 @@ patient_registry = PatientRegistry()
 _generator_started = False
 _generator_start_lock = threading.Lock()
 
-
+# Funkcja uruchamiająca w tle generator pacjentów. Generuje pacjentów w nieskończoność, dodając ich do rejestru pacjentów z odpowiednimi opóźnieniami między kolejnymi generacjami.
 def _patient_generation_worker():
     next_patient_id = 1
     lam_arrival = 15.0
@@ -89,7 +90,7 @@ def _patient_generation_worker():
         patient_registry.add_generated_patient(patient_record)
         next_patient_id += 1
 
-
+# Funkcja sprawdzająca, czy generator już został uruchomiony, a jeśli nie, to uruchamia go w osobnym wątku.
 def start_background_patient_generation():
     global _generator_started
 
@@ -101,6 +102,7 @@ def start_background_patient_generation():
         worker.start()
         _generator_started = True
 
+# Klasa widoku obsługująca główną stronę aplikacji. W metodzie GET uruchamia generator pacjentów (jeśli jeszcze nie został uruchomiony), oblicza czas oczekiwania na przyjęcie kolejnego pacjenta oraz renderuje szablon HTML z aktualną listą pacjentów, aktualnie obsługiwanym pacjentem i czasem oczekiwania.
 class PatientFormView(MethodView):
     def get(self):
         start_background_patient_generation()
@@ -121,7 +123,7 @@ class PatientFormView(MethodView):
 
 app.add_url_rule('/', view_func=PatientFormView.as_view('patient_form'), methods=['GET'])
 
-
+# Funkcja pomocnicza do budowania stanu kolejki, która oblicza czas oczekiwania na przyjęcie kolejnego pacjenta, pobiera listę wszystkich oczekujących pacjentów oraz aktualnie obsługiwanego pacjenta, a następnie zwraca te informacje w formie tabeli.
 def _build_queue_state():
     current_time = time.time()
     time_passed = current_time - patient_registry._last_admit_time
@@ -145,7 +147,7 @@ def _build_queue_state():
         "current_service_seconds": current_service_seconds,
     }
 
-
+# Endpoint API zwracający podstawowe informacje o stanie kolejki, takie jak liczba oczekujących pacjentów, ID ostatniego pacjenta w kolejce oraz ID aktualnie obsługiwanego pacjenta.
 @app.route('/api/queue/version', methods=['GET'])
 def queue_version():
     state = _build_queue_state()
@@ -157,12 +159,12 @@ def queue_version():
         }
     )
 
-
+# Endpoint API zwracający pełny stan kolejki, w tym listę oczekujących pacjentów, aktualnie obsługiwanego pacjenta, czas oczekiwania na przyjęcie kolejnego pacjenta oraz czas obsługi aktualnego pacjenta.
 @app.route('/api/queue/state', methods=['GET'])
 def queue_state():
     return jsonify(_build_queue_state())
 
-
+# Endpoint API zwracający informację o tym, czy udało się przyjąć kolejnego pacjenta oraz aktualny stan kolejki po tej operacji.
 @app.route('/api/queue/admit', methods=['POST'])
 def queue_admit():
     admitted = patient_registry.admit_patient()
@@ -170,7 +172,8 @@ def queue_admit():
     state["admitted"] = admitted
     return jsonify(state)
 
+# Endpoint API do ręcznego przyjęcia pacjenta. Wywołuje metodę admit_patient() z rejestru pacjentów
 @app.route('/admit', methods=['POST'])
 def admit_patient():
-    patient_registry.admit_patient() # Wywołujemy metodę, która istnieje
+    patient_registry.admit_patient()
     return redirect(url_for('patient_form'))
