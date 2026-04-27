@@ -1,21 +1,21 @@
 # System-kolejkowania-pacjentow-z-priorytetami
 
 <p align="center">
-  <img src="app/static/img/pg_logo.jpg" alt="Logo Politechniki Gdańskiej" height="80"/>
+  <img src="app/static/img/pg_logo.jpg" alt="Logo Politechniki Gdańskiej" height="800"/>
   &nbsp;&nbsp;&nbsp;
-  <img src="app/static/img/kib_logo.png" alt="Logo KIB" height="80"/>
+  <img src="app/static/img/kib_logo.png" alt="Logo KIB" height="800"/>
 </p>
 
 
 ---
-
+| | |
 |---|---|
 | **Przedmiot** | RAIM – Rozwój aplikacji internetowych w medycynie (2025/2026) |
 | **Temat** | Temat 2 – System kolejkowania pacjentów z priorytetami |
 | **Etap** | Etap 1 – Implementacja bazowa (kolejka FIFO) |
 | **Rok studiów** | 3|
 | **Prowadzący** | dr inż. Anna Jezierska |
-| **Autorzy** | [Adam Sikorsi], [Mateusz Grochowalski] |
+| **Autorzy** | Adam Sikorsi, Mateusz Grochowalski |
 | **Uczelnia** | Politechnika Gdańska, Wydział ETI |
 | **Katedra** | Katedra Inżynierii Biomedycznej (KIB) |
 

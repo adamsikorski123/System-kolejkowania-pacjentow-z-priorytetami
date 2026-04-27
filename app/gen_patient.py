@@ -4,9 +4,8 @@ from datetime import datetime
 from scripts.simulate_patients import poisson_patient_generator
 from app.nazwy import IMIONA_MESKIE, IMIONA_ZENSKIE, NAZWISKA_MESKIE, NAZWISKA_ZENSKIE
 
-
+# Prosty generator pacjentów, który losuje płeć i dobiera zgodne imię + nazwisko.
 def generate_patient_identity():
-	"""Losuje płeć i dobiera zgodne imię + nazwisko."""
 	gender = random.choice(["M", "K"])
 	if gender == "M":
 		first_name = random.choice(IMIONA_MESKIE)
@@ -17,14 +16,10 @@ def generate_patient_identity():
 
 	return gender, first_name, last_name
 
-
+# Funkcja pomocnicza do generowania kolejnego pacjenta i obliczania czasu oczekiwania do jego pojawienia się.
 def generate_next_patient_record(patient_id, lam_arrival, lam_service, min_service_seconds):
-	"""
-	Generuje kolejnego pacjenta i zwraca:
-	- czas oczekiwania do jego pojawienia się (sekundy),
-	- rekord pacjenta gotowy do zapisania w kolejce WWW.
-	"""
-	next_patient = next(
+
+	next_patient = next( 
 		poisson_patient_generator(
 			lam_arrival=lam_arrival,
 			lam_service=lam_service,

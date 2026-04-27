@@ -1,4 +1,5 @@
 (() => {
+	// Pobieranie elementów DOM i danych z atrybutów
 	const body = document.body;
 	const btn = document.getElementById("admitBtn");
 	const barContainer = document.getElementById("cooldown-container");
@@ -11,10 +12,12 @@
 	const queueBodyEl = document.getElementById("queue-body");
 	const queueOverflowEl = document.getElementById("queue-overflow");
 
+	// Inicjalizacja czasu oczekiwania i całkowitego czasu obsługi z atrybutów danych
 	let waitTime = Number(body?.dataset?.waitTime ?? "0") || 0;
 	let totalTime = Number(body?.dataset?.currentServiceSeconds ?? "0") || 0;
 	let cooldownInterval = null;
 
+	// Funkcja do odliczania aktualizacji interfejsu - progress bar
 	function startCooldown() {
 		if (!btn || !barContainer || !progressBar) {
 			return;
@@ -53,6 +56,7 @@
 		}
 	}
 
+	// Funkcja do generowania aktualnie obsługiwanego pacjenta
 	function renderCurrent(currentPatient) {
 		if (!currentNameEl || !currentMetaEl || !currentEmptyEl) {
 			return;
@@ -74,6 +78,7 @@
 		}
 	}
 
+	// Funkcja do generowania listy pacjentów w kolejce
 	function renderQueue(state) {
 		if (queueCountEl) {
 			queueCountEl.textContent = `Łącznie w kolejce: ${state.count ?? 0}`;
@@ -114,6 +119,7 @@
 		}
 	}
 
+	// Funkcja do zastosowania stanu kolejki i aktualizacji interfejsu
 	function applyState(state) {
 		renderCurrent(state.current || null);
 		renderQueue(state);
@@ -123,6 +129,7 @@
 		startCooldown();
 	}
 
+	// Funkcja do obsługi przyjęcia następnego pacjenta
 	function setupAdmitForm() {
 		if (!admitForm || !btn) {
 			return;
@@ -143,13 +150,13 @@
 					applyState(state);
 				}
 			} catch (error) {
-				// cichy fail przy chwilowych błędach sieci
 			} finally {
 				btn.innerHTML = "PRZYJMIJ NASTĘPNEGO";
 			}
 		});
 	}
 
+	// Funkcja do okresowego odświeżania stanu kolejki
 	async function refreshQueueState() {
 		try {
 			const response = await fetch("/api/queue/state", { cache: "no-store" });
@@ -160,7 +167,6 @@
 			const state = await response.json();
 			applyState(state);
 		} catch (error) {
-			// cichy fail przy chwilowych błędach sieci
 		}
 	}
 
