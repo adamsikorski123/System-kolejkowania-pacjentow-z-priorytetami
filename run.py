@@ -1,5 +1,6 @@
 from app.init import app
-
+import os
 
 if __name__ == "__main__":
-	app.run(debug=True, host="127.0.0.1", port=80)
+    port = int(os.environ.get("PORT", 80))
+    app.run(debug=False, host="0.0.0.0", port=port)
