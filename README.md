@@ -59,6 +59,17 @@ Niniejszy projekt symuluje system kolejkowania pacjentów oparty na priorytetach
 
 ## 2. Projekt architektury systemu
 
+### Uruchamianie przez `kolejka.local` (Windows)
+
+1. Otwórz jako administrator plik:
+  `C:\Windows\System32\drivers\etc\hosts`
+2. Dodaj linię:
+  `127.0.0.1 kolejka.local`
+3. Uruchom aplikację i wejdź w przeglądarce na:
+  `http://kolejka.local`
+
+> Jeśli aplikacja ma być dostępna też dla innych komputerów w sieci, każdy z nich musi mieć wpis w `hosts` wskazujący na IP komputera-serwera.
+
 ### 2.1 Przegląd architektury
 
 System zbudowany jest w architekturze **klient-serwer** z komunikacją REST API:
@@ -108,3 +119,6 @@ QueueEntry
 └── czas przyjęcia (datetime)
 
 ```
+
+
+najpierw run.py -> ngrok http 5000  (w venv)
