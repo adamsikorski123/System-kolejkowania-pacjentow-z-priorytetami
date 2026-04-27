@@ -4,9 +4,12 @@ from flask import Flask, jsonify, redirect, render_template, url_for
 from flask_restful import Resource, Api
 from flask.views import MethodView
 from app.gen_patient import generate_next_patient_record
+from .database import PatientDB
+
 
 app = Flask(__name__)  # Tworzymy instancję aplikacji Flask
 api = Api(app) # Inicjalizujemy Flask-RESTful API, ale nie definiujemy jeszcze żadnych zasobów.
+patient_db = PatientDB()# Inicjalizujemy bazę danych pacjentów, która będzie przechowywać informacje o pacjentach w SQLite.
 
 # Prosty rejestr pacjentów, który przechowuje listę oczekujących pacjentów oraz aktualnie obsługiwanego pacjenta.
 class PatientRegistry:
@@ -88,6 +91,7 @@ def _patient_generation_worker():
 
         time.sleep(wait_seconds)
         patient_registry.add_generated_patient(patient_record)
+        patient_db.add_patient(patient_record)
         next_patient_id += 1
 
 # Funkcja sprawdzająca, czy generator już został uruchomiony, a jeśli nie, to uruchamia go w osobnym wątku.
@@ -106,6 +110,8 @@ def start_background_patient_generation():
 class PatientFormView(MethodView):
     def get(self):
         start_background_patient_generation()
+        patients = patient_db.get_all_patients()
+        print(patients)
         current_time = time.time()
         time_passed = current_time - patient_registry._last_admit_time
         current_service_seconds = max(0, int(patient_registry._current_service_seconds or 0))
@@ -113,7 +119,7 @@ class PatientFormView(MethodView):
  
         return render_template(
             "index.html", 
-            patients=patient_registry.all_patients(), 
+            patients=patients,
             current=patient_registry.get_current_patient(), 
             wait_time=round(wait_time, 1),
             current_service_seconds=current_service_seconds,
@@ -162,6 +168,7 @@ def queue_version():
 # Endpoint API zwracający pełny stan kolejki, w tym listę oczekujących pacjentów, aktualnie obsługiwanego pacjenta, czas oczekiwania na przyjęcie kolejnego pacjenta oraz czas obsługi aktualnego pacjenta.
 @app.route('/api/queue/state', methods=['GET'])
 def queue_state():
+    print(patient_db.get_all_patients())
     return jsonify(_build_queue_state())
 
 # Endpoint API zwracający informację o tym, czy udało się przyjąć kolejnego pacjenta oraz aktualny stan kolejki po tej operacji.
