@@ -170,8 +170,29 @@
 		}
 	}
 
+	// Funkcja resetująca kolejkę przez API
+	async function resetQueue() {
+		const response = await fetch("/api/queue/reset", { method: "POST" });
+		if (!response.ok) {
+			alert("Nie udało się wyzerować kolejki.");
+			return;
+		}
+		window.location.reload();
+	}
+
 	startCooldown();
 	setupAdmitForm();
+
+	document.addEventListener("DOMContentLoaded", () => {
+		const resetBtn = document.getElementById("resetQueueBtn");
+		if (resetBtn) {
+			resetBtn.style.position = "fixed";
+			resetBtn.style.top = "16px";
+			resetBtn.style.right = "16px";
+			resetBtn.style.zIndex = "1000";
+			resetBtn.addEventListener("click", resetQueue);
+		}
+	});
 
 	refreshQueueState();
 	setInterval(refreshQueueState, 1000);

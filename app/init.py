@@ -5,11 +5,14 @@ from flask_restful import Resource, Api
 from flask.views import MethodView
 from app.gen_patient import generate_next_patient_record
 from .database import PatientDB
+from .login import init_auth
 
 
 app = Flask(__name__)  # Tworzymy instancję aplikacji Flask
-api = Api(app) # Inicjalizujemy Flask-RESTful API, ale nie definiujemy jeszcze żadnych zasobów.
-patient_db = PatientDB()# Inicjalizujemy bazę danych pacjentów, która będzie przechowywać informacje o pacjentach w SQLite.
+app.config["SECRET_KEY"] = "change-this-secret-key"
+api = Api(app)
+patient_db = PatientDB()
+init_auth(app, patient_db)
 
 # Prosty rejestr pacjentów, który przechowuje listę oczekujących pacjentów oraz aktualnie obsługiwanego pacjenta.
 class PatientRegistry:
@@ -68,31 +71,49 @@ class PatientRegistry:
         with self._lock:
             return list(self._patients)
 
+    def clear(self):
+        with self._lock:
+            self._patients = []
+            self._current_patient = None
+            self._last_admit_time = 0
+            self._current_service_seconds = 0
+
 patient_registry = PatientRegistry()
 
+def _restore_registry_from_db():
+    for patient in patient_db.get_all_patients():
+        patient_registry.add_generated_patient(patient)
+
+_restore_registry_from_db()
 
 _generator_started = False
 _generator_start_lock = threading.Lock()
 
 # Funkcja uruchamiająca w tle generator pacjentów. Generuje pacjentów w nieskończoność, dodając ich do rejestru pacjentów z odpowiednimi opóźnieniami między kolejnymi generacjami.
 def _patient_generation_worker():
-    next_patient_id = 1
     lam_arrival = 15.0
     lam_service = 10.0
     min_service_seconds = 2
 
     while True:
+        suggested_id = patient_db.get_next_patient_id()
         wait_seconds, patient_record = generate_next_patient_record(
-            patient_id=next_patient_id,
+            patient_id=suggested_id,
             lam_arrival=lam_arrival,
             lam_service=lam_service,
             min_service_seconds=min_service_seconds,
         )
 
         time.sleep(wait_seconds)
+
+        # ID ustalane przy zapisie -> po resecie zaczyna znowu od 1
+        next_id = patient_db.get_next_patient_id()
+        patient_record["id"] = next_id
+        if "admission_number" in patient_record:
+            patient_record["admission_number"] = next_id
+
         patient_registry.add_generated_patient(patient_record)
         patient_db.add_patient(patient_record)
-        next_patient_id += 1
 
 # Funkcja sprawdzająca, czy generator już został uruchomiony, a jeśli nie, to uruchamia go w osobnym wątku.
 def start_background_patient_generation():
@@ -175,6 +196,10 @@ def queue_state():
 @app.route('/api/queue/admit', methods=['POST'])
 def queue_admit():
     admitted = patient_registry.admit_patient()
+    if admitted:
+        current = patient_registry.get_current_patient()
+        if isinstance(current, dict) and current.get("id") is not None:
+            patient_db.delete_patient(int(current["id"]))
     state = _build_queue_state()
     state["admitted"] = admitted
     return jsonify(state)
@@ -182,5 +207,18 @@ def queue_admit():
 # Endpoint API do ręcznego przyjęcia pacjenta. Wywołuje metodę admit_patient() z rejestru pacjentów
 @app.route('/admit', methods=['POST'])
 def admit_patient():
-    patient_registry.admit_patient()
+    admitted = patient_registry.admit_patient()
+    if admitted:
+        current = patient_registry.get_current_patient()
+        if isinstance(current, dict) and current.get("id") is not None:
+            patient_db.delete_patient(int(current["id"]))
     return redirect(url_for('patient_form'))
+
+# Endpoint API resetujący kolejkę.
+@app.route('/api/queue/reset', methods=['POST'])
+def queue_reset():
+    patient_registry.clear()
+    patient_db.clear_all_patients()
+    state = _build_queue_state()
+    state["reset"] = True
+    return jsonify(state)

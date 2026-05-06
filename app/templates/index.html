@@ -6,8 +6,6 @@
 </head>
 <body style="font-family: Arial, sans-serif; max-width: 600px; margin: auto;" data-wait-time='{{ wait_time|tojson }}' data-current-service-seconds='{{ current_service_seconds|tojson }}'>
 
-    <h1>System kolejkowy pacjentów</h1>
-
     <div id="current-card" style="background-color: #d1ecf1; border: 2px solid #0c5460; padding: 15px; border-radius: 5px; margin: 20px 0;">
         <h3 style="margin-top: 0;">Aktualnie przyjmowany:</h3>
         {% if current %}
@@ -46,6 +44,10 @@
             <span id="timer" style="margin-left: 10px; color: red; font-weight: bold;"></span>
         </form>
 
+        <button id="resetQueueBtn" type="button" style="background: #dc3545; color: white; border: none; padding: 10px; cursor: pointer; margin-top: 10px;">
+            ZERUJ KOLEJKĘ
+        </button>
+
         <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
             <thead>
                 <tr style="background: #f2f2f2;">
@@ -81,6 +83,15 @@
         {% else %}
             <p id="queue-overflow" style="font-style: italic; color: #999; display: none;"></p>
         {% endif %}
+
+    <a href="{{ url_for('auth.logout') }}"
+       style="position: fixed; top: 16px; left: 16px; z-index: 1000; padding: 8px 12px; background: #dc3545; color: #fff; text-decoration: none; border-radius: 6px;">
+      Wyloguj
+    </a>
+
+    <div style="position: fixed; right: 16px; bottom: 16px; z-index: 1000; padding: 8px 12px; background: #f1f3f5; border: 1px solid #ddd; border-radius: 6px; color: #333;">
+      Zalogowano jako: <strong>{{ current_user or '-' }}</strong>
+    </div>
 
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
