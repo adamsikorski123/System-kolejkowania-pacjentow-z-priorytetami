@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <title>Logowanie</title>
+  <style>
+    body { font-family: Arial, sans-serif; display:flex; align-items:center; justify-content:center; height:100vh; background:#f5f5f5; }
+    .box { background:white; padding:24px; border-radius:8px; width:320px; box-shadow:0 2px 12px rgba(0,0,0,.08); }
+    input { width:100%; margin:8px 0; padding:10px; box-sizing:border-box; }
+    button { width:100%; padding:10px; background:#007bff; color:white; border:0; cursor:pointer; }
+    .err { color:#b00020; font-size:14px; margin-bottom:8px; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h2 style="margin-top:0; margin-bottom:8px; text-align:center;">System kolejkowy pacjentów</h2>
+    <h3>Zaloguj się</h3>
+    {% if error %}<div class="err">{{ error }}</div>{% endif %}
+    <form method="post">
+      <input type="text" name="username" placeholder="Login" required />
+      <input type="password" name="password" placeholder="Hasło" required />
+      <button type="submit">Zaloguj</button>
+    </form>
+  </div>
+</body>
+</html>
