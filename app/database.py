@@ -6,19 +6,15 @@ from werkzeug.security import check_password_hash, generate_password_hash
 class PatientDB:
     DEFAULT_MAX_RECORDS = 20
 
-    def __init__(self, db_name=None, max_records=None):
+    def __init__(self, db_name=None, max_records=None, auth_db_name=None):
         base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-        preferred_path = db_name or os.path.join(base_dir, "patient.db")
-        legacy_path = os.path.join(base_dir, "patients.db")
 
-        # Jeśli nie podano ścieżki i istnieje stary plik, użyj go (kompatybilność)
-        self.db_path = preferred_path
-        if db_name is None and not os.path.exists(preferred_path) and os.path.exists(legacy_path):
-            self.db_path = legacy_path
+        # Nowe bazy od zera (bez migracji i bez fallbacków)
+        self.patients_db_path = db_name or os.path.join(base_dir, "patients.db")
+        self.auth_db_path = auth_db_name or os.path.join(base_dir, "users.db")
 
         env_max = os.getenv("PATIENT_DB_MAX_RECORDS")
         raw_max = max_records if max_records is not None else env_max
-
         try:
             parsed_max = int(raw_max) if raw_max is not None else self.DEFAULT_MAX_RECORDS
         except (TypeError, ValueError):
@@ -26,11 +22,15 @@ class PatientDB:
 
         self.max_records = max(1, parsed_max)
         self._lock = threading.Lock()
-        self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
-        self.cur = self.conn.cursor()
+
+        self.patients_conn = sqlite3.connect(self.patients_db_path, check_same_thread=False)
+        self.patients_cur = self.patients_conn.cursor()
+
+        self.auth_conn = sqlite3.connect(self.auth_db_path, check_same_thread=False)
+        self.auth_cur = self.auth_conn.cursor()
 
         with self._lock:
-            self.cur.execute("""
+            self.patients_cur.execute("""
                 CREATE TABLE IF NOT EXISTS patients (
                     id INTEGER PRIMARY KEY,
                     gender TEXT NOT NULL,
@@ -40,16 +40,17 @@ class PatientDB:
                     service_time_seconds INTEGER
                 )
             """)
-            self.cur.execute("""
+            self.auth_cur.execute("""
                 CREATE TABLE IF NOT EXISTS users (
                     username TEXT PRIMARY KEY,
                     password_hash TEXT NOT NULL
                 )
             """)
-            self.conn.commit()
+            self.patients_conn.commit()
+            self.auth_conn.commit()
 
     def _enforce_max_records(self):
-        self.cur.execute("""
+        self.patients_cur.execute("""
             DELETE FROM patients
             WHERE id NOT IN (
                 SELECT id FROM patients
@@ -59,13 +60,13 @@ class PatientDB:
         """, (self.max_records,))
 
     def _get_patient_count(self) -> int:
-        self.cur.execute("SELECT COUNT(*) FROM patients")
-        return int(self.cur.fetchone()[0])
+        self.patients_cur.execute("SELECT COUNT(*) FROM patients")
+        return int(self.patients_cur.fetchone()[0])
 
     def _delete_oldest_patients(self, count_to_delete: int):
         if count_to_delete <= 0:
             return
-        self.cur.execute(
+        self.patients_cur.execute(
             """
             DELETE FROM patients
             WHERE id IN (
@@ -81,8 +82,8 @@ class PatientDB:
         with self._lock:
             patient_id = patient_record["id"]
 
-            self.cur.execute("SELECT 1 FROM patients WHERE id = ?", (patient_id,))
-            exists = self.cur.fetchone() is not None
+            self.patients_cur.execute("SELECT 1 FROM patients WHERE id = ?", (patient_id,))
+            exists = self.patients_cur.fetchone() is not None
 
             if not exists:
                 current_count = self._get_patient_count()
@@ -90,7 +91,7 @@ class PatientDB:
                 if overflow > 0:
                     self._delete_oldest_patients(overflow)
 
-            self.cur.execute("""
+            self.patients_cur.execute("""
                 INSERT OR REPLACE INTO patients
                 (id, gender, full_name, arrival_time, priority_number, service_time_seconds)
                 VALUES (?, ?, ?, ?, ?, ?)
@@ -102,31 +103,31 @@ class PatientDB:
                 patient_record.get("priority"),
                 patient_record.get("service_time_seconds"),
             ))
-            self.conn.commit()
+            self.patients_conn.commit()
 
     def delete_patient(self, patient_id: int):
         with self._lock:
-            self.cur.execute("DELETE FROM patients WHERE id = ?", (patient_id,))
-            self.conn.commit()
+            self.patients_cur.execute("DELETE FROM patients WHERE id = ?", (patient_id,))
+            self.patients_conn.commit()
 
     def clear_all_patients(self):
         with self._lock:
-            self.cur.execute("DELETE FROM patients")
-            self.conn.commit()
+            self.patients_cur.execute("DELETE FROM patients")
+            self.patients_conn.commit()
 
     def get_next_patient_id(self) -> int:
         with self._lock:
-            self.cur.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM patients")
-            return int(self.cur.fetchone()[0])
+            self.patients_cur.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM patients")
+            return int(self.patients_cur.fetchone()[0])
 
     def get_all_patients(self):
         with self._lock:
-            self.cur.execute("""
+            self.patients_cur.execute("""
                 SELECT id, gender, full_name, arrival_time, priority_number, service_time_seconds
                 FROM patients
                 ORDER BY id
             """)
-            rows = self.cur.fetchall()
+            rows = self.patients_cur.fetchall()
 
         return [
             {
@@ -142,18 +143,18 @@ class PatientDB:
 
     def ensure_default_user(self, username="admin", password="admin123"):
         with self._lock:
-            self.cur.execute("SELECT username FROM users WHERE username = ?", (username,))
-            if self.cur.fetchone() is None:
-                self.cur.execute(
+            self.auth_cur.execute("SELECT username FROM users WHERE username = ?", (username,))
+            if self.auth_cur.fetchone() is None:
+                self.auth_cur.execute(
                     "INSERT INTO users (username, password_hash) VALUES (?, ?)",
                     (username, generate_password_hash(password)),
                 )
-                self.conn.commit()
+                self.auth_conn.commit()
 
     def verify_user(self, username: str, password: str) -> bool:
         with self._lock:
-            self.cur.execute("SELECT password_hash FROM users WHERE username = ?", (username,))
-            row = self.cur.fetchone()
+            self.auth_cur.execute("SELECT password_hash FROM users WHERE username = ?", (username,))
+            row = self.auth_cur.fetchone()
         if not row:
             return False
         return check_password_hash(row[0], password)
@@ -164,14 +165,14 @@ class PatientDB:
             return False
 
         with self._lock:
-            self.cur.execute("SELECT username FROM users WHERE username = ?", (username,))
-            if self.cur.fetchone() is not None:
+            self.auth_cur.execute("SELECT username FROM users WHERE username = ?", (username,))
+            if self.auth_cur.fetchone() is not None:
                 return False
-            self.cur.execute(
+            self.auth_cur.execute(
                 "INSERT INTO users (username, password_hash) VALUES (?, ?)",
                 (username, generate_password_hash(password)),
             )
-            self.conn.commit()
+            self.auth_conn.commit()
             return True
 
     def delete_user(self, username: str) -> bool:
@@ -180,13 +181,13 @@ class PatientDB:
             return False
 
         with self._lock:
-            self.cur.execute("DELETE FROM users WHERE username = ?", (username,))
-            deleted = self.cur.rowcount > 0
-            self.conn.commit()
+            self.auth_cur.execute("DELETE FROM users WHERE username = ?", (username,))
+            deleted = self.auth_cur.rowcount > 0
+            self.auth_conn.commit()
             return deleted
 
     def list_users(self):
         with self._lock:
-            self.cur.execute("SELECT username FROM users ORDER BY username")
-            rows = self.cur.fetchall()
+            self.auth_cur.execute("SELECT username FROM users ORDER BY username")
+            rows = self.auth_cur.fetchall()
         return [r[0] for r in rows]

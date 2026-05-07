@@ -1,5 +1,6 @@
 import time
 import threading
+import os
 from flask import Flask, jsonify, redirect, render_template, url_for, request, session
 from flask_restful import Resource, Api
 from flask.views import MethodView
@@ -12,7 +13,12 @@ from .login import init_auth
 app = Flask(__name__)  # Tworzymy instancję aplikacji Flask
 app.config["SECRET_KEY"] = "change-this-secret-key"
 api = Api(app)
-patient_db = PatientDB()
+
+_BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+_PATIENTS_DB_PATH = os.path.join(_BASE_DIR, "patients.db")
+_USERS_DB_PATH = os.path.join(_BASE_DIR, "users.db")
+
+patient_db = PatientDB(db_name=_PATIENTS_DB_PATH, auth_db_name=_USERS_DB_PATH)
 init_auth(app, patient_db)
 
 # Prosty rejestr pacjentów, który przechowuje listę oczekujących pacjentów oraz aktualnie obsługiwanego pacjenta.

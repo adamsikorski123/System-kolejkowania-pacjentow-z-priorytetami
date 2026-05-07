@@ -1,4 +1,9 @@
-from database import PatientDB
+from pathlib import Path
+
+try:
+    from app.database import PatientDB
+except ImportError:
+    from database import PatientDB
 
 
 def print_help():
@@ -11,7 +16,11 @@ def print_help():
 
 
 def main():
-    db = PatientDB()
+    project_root = Path(__file__).resolve().parents[1]
+    patients_db = str(project_root / "patients.db")
+    users_db = str(project_root / "users.db")
+
+    db = PatientDB(db_name=patients_db, auth_db_name=users_db)
     print_help()
 
     while True:
