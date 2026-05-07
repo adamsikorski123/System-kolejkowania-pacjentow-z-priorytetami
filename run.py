@@ -1,8 +1,8 @@
 import os
+from app.init import app
 
 if __name__ == '__main__':
     os.environ.setdefault("PATIENT_DB_MAX_RECORDS", "20")
-    from app.init import app
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
 

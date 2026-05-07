@@ -86,28 +86,9 @@
 		return [];
 	}
 
-	async function tryFetchFullPatients() {
-		const endpoints = ["/api/queue/patients", "/api/patients", "/api/queue/all"];
-		for (const url of endpoints) {
-			try {
-				const res = await fetch(url, { cache: "no-store" });
-				if (!res.ok) continue;
-				const data = await res.json();
-				if (Array.isArray(data)) return data;
-				if (Array.isArray(data?.patients)) return data.patients;
-			} catch (_) {}
-		}
-		return null;
-	}
-
-	async function enrichStateWithFullPatients(state) {
-		const current = getPatientsFromState(state);
-		const expectedCount = Number(state?.count ?? current.length);
-		if (current.length >= expectedCount) return state;
-
-		const full = await tryFetchFullPatients();
-		if (Array.isArray(full) && full.length) {
-			return { ...state, patients: full };
+	function validateApiState(state) {
+		if (!Array.isArray(state?.patients)) {
+			console.warn('API /api/queue/state powinno zwracać pełną listę w polu "patients".');
 		}
 		return state;
 	}
@@ -311,7 +292,7 @@
 			if (!response.ok) return;
 
 			let state = await response.json();
-			state = await enrichStateWithFullPatients(state);
+			state = validateApiState(state);
 			applyState(state);
 		} catch (error) {}
 	}
