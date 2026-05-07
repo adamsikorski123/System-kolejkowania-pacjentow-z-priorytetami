@@ -209,3 +209,6 @@ cloudflared/cert.pem
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Local SQLite database
+patients.db

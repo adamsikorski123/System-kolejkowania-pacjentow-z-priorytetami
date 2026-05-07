@@ -100,17 +100,12 @@
 						<td style="border: 1px solid #ddd; padding: 8px;">${patient.arrival_time ?? "-"}</td>
 						<td style="border: 1px solid #ddd; padding: 8px;">
 							<select class="priority-select patient-priority-select" data-patient-id="${patient.id ?? ""}" style="width: 100%; padding: 4px; border: 1px solid #ddd; border-radius: 3px;">
-								<option value="1" ${patient.priority === 1 ? 'selected' : ''}>1 - Niebieski</option>
-								<option value="2" ${patient.priority === 2 ? 'selected' : ''}>2 - Zielony</option>
-								<option value="3" ${patient.priority === 3 ? 'selected' : ''}>3 - Żółty</option>
-								<option value="4" ${patient.priority === 4 ? 'selected' : ''}>4 - Pomarańczowy</option>
-			// Dodaj obsługę zmiany priorytetu dla wszystkich selektorów
-			const prioritySelects = queueBodyEl.querySelectorAll(".patient-priority-select");
-			prioritySelects.forEach(select => {
-				select.addEventListener("change", handlePriorityChange);
-			});
-		} else {
-			queueBodyEl.innerHTML = '<tr><td colspan="6
+								<option value="1" ${patient.priority === 1 ? "selected" : ""}>1 - Niebieski</option>
+								<option value="2" ${patient.priority === 2 ? "selected" : ""}>2 - Zielony</option>
+								<option value="3" ${patient.priority === 3 ? "selected" : ""}>3 - Żółty</option>
+								<option value="4" ${patient.priority === 4 ? "selected" : ""}>4 - Pomarańczowy</option>
+								<option value="5" ${patient.priority === 5 ? "selected" : ""}>5 - Czerwony</option>
+							</select>
 						</td>
 						<td style="border: 1px solid #ddd; padding: 8px;">${patient.service_time_seconds ?? "-"} s</td>
 					</tr>
@@ -119,7 +114,27 @@
 			.join("");
 
 		if (rows) {
-			queueBodyEl.obsługi zmiany priorytetu pacjenta
+			queueBodyEl.innerHTML = rows;
+			const prioritySelects = queueBodyEl.querySelectorAll(".patient-priority-select");
+			prioritySelects.forEach((select) => {
+				select.addEventListener("change", handlePriorityChange);
+			});
+		} else {
+			queueBodyEl.innerHTML = '<tr><td colspan="6" style="border: 1px solid #ddd; padding: 8px; color: #666;">Brak osób w kolejce.</td></tr>';
+		}
+
+		if (queueOverflowEl) {
+			if ((state.overflow_count || 0) > 0) {
+				queueOverflowEl.style.display = "block";
+				queueOverflowEl.textContent = `... oraz ${state.overflow_count} osób oczekujących dalej.`;
+			} else {
+				queueOverflowEl.style.display = "none";
+				queueOverflowEl.textContent = "";
+			}
+		}
+	}
+
+	// Obsługa zmiany priorytetu pacjenta
 	async function handlePriorityChange(event) {
 		const select = event.target;
 		const patientId = select.getAttribute("data-patient-id");
@@ -130,9 +145,9 @@
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
-					patient_id: parseInt(patientId),
-					priority: parseInt(newPriority)
-				})
+					patient_id: parseInt(patientId, 10),
+					priority: parseInt(newPriority, 10),
+				}),
 			});
 
 			if (response.ok) {
@@ -145,22 +160,6 @@
 		} catch (error) {
 			console.error("Błąd:", error);
 			alert("Nie udało się zmienić priorytetu.");
-		}
-	}
-
-	// Funkcja do innerHTML = rows;
-		} else {
-			queueBodyEl.innerHTML = '<tr><td colspan="4" style="border: 1px solid #ddd; padding: 8px; color: #666;">Brak osób w kolejce.</td></tr>';
-		}
-
-		if (queueOverflowEl) {
-			if ((state.overflow_count || 0) > 0) {
-				queueOverflowEl.style.display = "block";
-				queueOverflowEl.textContent = `... oraz ${state.overflow_count} osób oczekujących dalej.`;
-			} else {
-				queueOverflowEl.style.display = "none";
-				queueOverflowEl.textContent = "";
-			}
 		}
 	}
 
