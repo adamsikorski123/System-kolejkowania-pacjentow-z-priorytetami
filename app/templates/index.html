@@ -74,12 +74,12 @@
         <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
             <thead>
                 <tr style="background: #f2f2f2;">
-                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">ID</th>
-                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Płeć</th>
-                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Imię i nazwisko</th>
-                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Przybycie</th>
-                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Priorytet</th>
-                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Czas obsługi</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: right;width: 50px">ID</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: center;width: 50px">Płeć</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Imię i nazwisko</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Przybycie</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Priorytet</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Czas obsługi</th>
                 </tr>
             </thead>
             <tbody id="queue-body">
@@ -105,7 +105,7 @@
                 {% endfor %}
                 {% if patients|length == 0 %}
                     <tr>
-                        <td colspan="6" style="border: 1px solid #ddd; padding: 8px; color: #666;">Brak osób w kolejce.</td>
+                        <td colspan="6" style="border: 1px solid #ddd; padding: 8px; color: #666;"></td>
                     </tr>
                 {% endif %}
             </tbody>

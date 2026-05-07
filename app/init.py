@@ -1,6 +1,6 @@
 import time
 import threading
-from flask import Flask, jsonify, redirect, render_template, url_for, request
+from flask import Flask, jsonify, redirect, render_template, url_for, request, session
 from flask_restful import Resource, Api
 from flask.views import MethodView
 from app.gen_patient import generate_next_patient_record
@@ -17,12 +17,9 @@ init_auth(app, patient_db)
 
 # Prosty rejestr pacjentów, który przechowuje listę oczekujących pacjentów oraz aktualnie obsługiwanego pacjenta.
 class PatientRegistry:
-
-    def __init__(self): # Inicjalizujemy rejestr pacjentów
+    def __init__(self):
         self._patients = []
-        self._current_patient = None
-        self._last_admit_time = 0
-        self._current_service_seconds = 0
+        self._user_states = {}  # user_key -> {"current_patient", "last_admit_time", "current_service_seconds"}
         self._lock = threading.Lock()
 
     # Metoda do dodawania pacjenta do kolejki. Przyjmuje dane pacjenta i tworzy rekord, który jest dodawany do listy oczekujących pacjentów.
@@ -59,25 +56,38 @@ class PatientRegistry:
             self._sort_patients()
         return True
 
-    # Metoda przenosząca pierwszego pacjenta z kolejki do pola 'current_patient'. Sprawdza, czy minął odpowiedni czas od ostatniego przyjęcia pacjenta (na podstawie czasu obsługi aktualnego pacjenta) i jeśli tak, to przenosi pierwszego pacjenta z listy oczekujących do pola 'current_patient' oraz aktualizuje czas ostatniego przyjęcia.
-    def admit_patient(self):
-        current_time = time.time()
-        cooldown_seconds = max(0, int(self._current_service_seconds or 0))
-        if current_time - self._last_admit_time < cooldown_seconds:
-            return False
+    def _get_or_create_user_state(self, user_key: str):
+        state = self._user_states.get(user_key)
+        if state is None:
+            state = {
+                "current_patient": None,
+                "last_admit_time": 0.0,
+                "current_service_seconds": 0,
+            }
+            self._user_states[user_key] = state
+        return state
 
+    # Metoda przenosząca pierwszego pacjenta z kolejki do pola 'current_patient'. Sprawdza, czy minął odpowiedni czas od ostatniego przyjęcia pacjenta (na podstawie czasu obsługi aktualnego pacjenta) i jeśli tak, to przenosi pierwszego pacjenta z listy oczekujących do pola 'current_patient' oraz aktualizuje czas ostatniego przyjęcia.
+    def admit_patient(self, user_key: str):
+        current_time = time.time()
         with self._lock:
+            state = self._get_or_create_user_state(user_key)
+            cooldown_seconds = max(0, int(state["current_service_seconds"] or 0))
+            if current_time - float(state["last_admit_time"] or 0) < cooldown_seconds:
+                return False
+
             if self._patients:
-                self._current_patient = self._patients.pop(0)
-                current_service = self._current_patient.get("service_time_seconds")
-                self._current_service_seconds = int(current_service) if isinstance(current_service, (int, float)) else 5
-                self._last_admit_time = current_time 
+                state["current_patient"] = self._patients.pop(0)
+                current_service = state["current_patient"].get("service_time_seconds")
+                state["current_service_seconds"] = int(current_service) if isinstance(current_service, (int, float)) else 5
+                state["last_admit_time"] = current_time
                 return True
             return False
     # Metoda zwracająca aktualnie obsługiwanego pacjenta.
-    def get_current_patient(self):
+    def get_current_patient(self, user_key: str):
         with self._lock:
-            return self._current_patient
+            state = self._get_or_create_user_state(user_key)
+            return state["current_patient"]
 
     # Metoda zwracająca listę wszystkich oczekujących pacjentów.
     def all_patients(self):
@@ -87,8 +97,7 @@ class PatientRegistry:
     def clear(self):
         with self._lock:
             self._patients = []
-            self._current_patient = None
-            self._last_admit_time = 0
+            self._user_states = {}
 
     # Metoda do zmiany priorytetu pacjenta w kolejce i przesunięcia go na odpowiednią pozycję
     def change_patient_priority(self, patient_id: int, new_priority: int) -> bool:
@@ -112,6 +121,23 @@ class PatientRegistry:
                 self._sort_patients()
                 return True
         return False
+
+    def get_wait_time(self, user_key: str) -> float:
+        with self._lock:
+            state = self._get_or_create_user_state(user_key)
+            last_admit_time = float(state.get("last_admit_time") or 0.0)
+            current_service_seconds = max(0, int(state.get("current_service_seconds") or 0))
+
+            if last_admit_time <= 0:
+                return 0.0
+
+            time_passed = time.time() - last_admit_time
+            return max(0.0, current_service_seconds - time_passed)
+
+    def get_current_service_seconds(self, user_key: str) -> int:
+        with self._lock:
+            state = self._get_or_create_user_state(user_key)
+            return max(0, int(state.get("current_service_seconds") or 0))
 
 patient_registry = PatientRegistry()
 
@@ -162,21 +188,25 @@ def start_background_patient_generation():
         worker.start()
         _generator_started = True
 
+def _get_request_user_key() -> str:
+    username = session.get("username")
+    if isinstance(username, str) and username.strip():
+        return username.strip()
+    return request.remote_addr or "anonymous"
+
 # Klasa widoku obsługująca główną stronę aplikacji. W metodzie GET uruchamia generator pacjentów (jeśli jeszcze nie został uruchomiony), oblicza czas oczekiwania na przyjęcie kolejnego pacjenta oraz renderuje szablon HTML z aktualną listą pacjentów, aktualnie obsługiwanem pacjentem i czasem oczekiwania.
 class PatientFormView(MethodView):
     def get(self):
         start_background_patient_generation()
+        user_key = _get_request_user_key()
         patients = patient_db.get_all_patients()
-        print(patients)
-        current_time = time.time()
-        time_passed = current_time - patient_registry._last_admit_time
-        current_service_seconds = max(0, int(patient_registry._current_service_seconds or 0))
-        wait_time = max(0, current_service_seconds - time_passed) if patient_registry._last_admit_time > 0 else 0
- 
+        wait_time = patient_registry.get_wait_time(user_key)
+        current_service_seconds = patient_registry.get_current_service_seconds(user_key)
+
         return render_template(
-            "index.html", 
+            "index.html",
             patients=patients,
-            current=patient_registry.get_current_patient(), 
+            current=patient_registry.get_current_patient(user_key),
             wait_time=round(wait_time, 1),
             current_service_seconds=current_service_seconds,
             error=None
@@ -186,14 +216,11 @@ class PatientFormView(MethodView):
 app.add_url_rule('/', view_func=PatientFormView.as_view('patient_form'), methods=['GET'])
 
 # Funkcja pomocnicza do budowania stanu kolejki, która oblicza czas oczekiwania na przyjęcie kolejnego pacjenta, pobiera listę wszystkich oczekujących pacjentów oraz aktualnie obsługiwanego pacjenta, a następnie zwraca te informacje w formie tabeli.
-def _build_queue_state():
-    current_time = time.time()
-    time_passed = current_time - patient_registry._last_admit_time
-    current_service_seconds = max(0, int(patient_registry._current_service_seconds or 0))
-    wait_time = max(0, current_service_seconds - time_passed) if patient_registry._last_admit_time > 0 else 0
-
+def _build_queue_state(user_key: str):
     patients = [_normalize_patient(p) for p in patient_registry.all_patients()]
-    current = _normalize_patient(patient_registry.get_current_patient())
+    current = _normalize_patient(patient_registry.get_current_patient(user_key))
+    wait_time = patient_registry.get_wait_time(user_key)
+    current_service_seconds = patient_registry.get_current_service_seconds(user_key)
 
     last_id = patients[-1].get("id", 0) if patients else 0
     current_id = current.get("id", 0) if isinstance(current, dict) else 0
@@ -203,8 +230,8 @@ def _build_queue_state():
         "last_id": last_id,
         "current_id": current_id,
         "current": current,
-        "patients": patients,                
-        "patients_preview": patients[:3], 
+        "patients": patients,
+        "patients_preview": patients[:3],
         "overflow_count": max(0, len(patients) - 3),
         "wait_time": round(wait_time, 1),
         "current_service_seconds": current_service_seconds,
@@ -230,38 +257,40 @@ def _normalize_patient(patient):
 # Endpoint API zwracający podstawowe informacje o stanie kolejki, takie jak liczba oczekujących pacjentów, ID ostatniego pacjenta w kolejce oraz ID aktualnie obsługiwanego pacjenta.
 @app.route('/api/queue/version', methods=['GET'])
 def queue_version():
-    state = _build_queue_state()
-    return jsonify(
-        {
-            "count": state["count"],
-            "last_id": state["last_id"],
-            "current_id": state["current_id"],
-        }
-    )
+    user_key = _get_request_user_key()
+    state = _build_queue_state(user_key)
+    return jsonify({
+        "count": state["count"],
+        "last_id": state["last_id"],
+        "current_id": state["current_id"],
+    })
 
 # Endpoint API zwracający pełny stan kolejki, w tym listę oczekujących pacjentów, aktualnie obsługiwanego pacjenta, czas oczekiwania na przyjęcie kolejnego pacjenta oraz czas obsługi aktualnego pacjenta.
 @app.route('/api/queue/state', methods=['GET'])
 def queue_state():
-    return jsonify(_build_queue_state())
+    user_key = _get_request_user_key()
+    return jsonify(_build_queue_state(user_key))
 
 # Endpoint API zwracający informację o tym, czy udało się przyjąć kolejnego pacjenta oraz aktualny stan kolejki po tej operacji.
 @app.route('/api/queue/admit', methods=['POST'])
 def queue_admit():
-    admitted = patient_registry.admit_patient()
+    user_key = _get_request_user_key()
+    admitted = patient_registry.admit_patient(user_key)
     if admitted:
-        current = patient_registry.get_current_patient()
+        current = patient_registry.get_current_patient(user_key)
         if isinstance(current, dict) and current.get("id") is not None:
             patient_db.delete_patient(int(current["id"]))
-    state = _build_queue_state()
+    state = _build_queue_state(user_key)
     state["admitted"] = admitted
     return jsonify(state)
 
 # Endpoint API do ręcznego przyjęcia pacjenta. Wywołuje metodę admit_patient() z rejestru pacjentów
 @app.route('/admit', methods=['POST'])
 def admit_patient():
-    admitted = patient_registry.admit_patient()
+    user_key = _get_request_user_key()
+    admitted = patient_registry.admit_patient(user_key)
     if admitted:
-        current = patient_registry.get_current_patient()
+        current = patient_registry.get_current_patient(user_key)
         if isinstance(current, dict) and current.get("id") is not None:
             patient_db.delete_patient(int(current["id"]))
     return redirect(url_for('patient_form'))
@@ -271,7 +300,7 @@ def admit_patient():
 def queue_reset():
     patient_registry.clear()
     patient_db.clear_all_patients()
-    state = _build_queue_state()
+    state = _build_queue_state(_get_request_user_key())
     state["reset"] = True
     return jsonify(state)
 
@@ -302,6 +331,6 @@ def change_priority():
             updated["service_time_seconds"] = get_service_time_for_priority(new_priority)
             patient_db.add_patient(updated)
 
-    state = _build_queue_state()
+    state = _build_queue_state(_get_request_user_key())
     state["success"] = success
     return jsonify(state)
