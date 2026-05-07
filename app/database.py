@@ -4,7 +4,9 @@ import threading
 from werkzeug.security import check_password_hash, generate_password_hash
 
 class PatientDB:
-    def __init__(self, db_name=None, max_records=100):
+    DEFAULT_MAX_RECORDS = 20
+
+    def __init__(self, db_name=None, max_records=None):
         base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
         preferred_path = db_name or os.path.join(base_dir, "patient.db")
         legacy_path = os.path.join(base_dir, "patients.db")
@@ -14,7 +16,15 @@ class PatientDB:
         if db_name is None and not os.path.exists(preferred_path) and os.path.exists(legacy_path):
             self.db_path = legacy_path
 
-        self.max_records = max_records
+        env_max = os.getenv("PATIENT_DB_MAX_RECORDS")
+        raw_max = max_records if max_records is not None else env_max
+
+        try:
+            parsed_max = int(raw_max) if raw_max is not None else self.DEFAULT_MAX_RECORDS
+        except (TypeError, ValueError):
+            parsed_max = self.DEFAULT_MAX_RECORDS
+
+        self.max_records = max(1, parsed_max)
         self._lock = threading.Lock()
         self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
         self.cur = self.conn.cursor()
@@ -48,8 +58,38 @@ class PatientDB:
             )
         """, (self.max_records,))
 
+    def _get_patient_count(self) -> int:
+        self.cur.execute("SELECT COUNT(*) FROM patients")
+        return int(self.cur.fetchone()[0])
+
+    def _delete_oldest_patients(self, count_to_delete: int):
+        if count_to_delete <= 0:
+            return
+        self.cur.execute(
+            """
+            DELETE FROM patients
+            WHERE id IN (
+                SELECT id FROM patients
+                ORDER BY id ASC
+                LIMIT ?
+            )
+            """,
+            (count_to_delete,),
+        )
+
     def add_patient(self, patient_record):
         with self._lock:
+            patient_id = patient_record["id"]
+
+            self.cur.execute("SELECT 1 FROM patients WHERE id = ?", (patient_id,))
+            exists = self.cur.fetchone() is not None
+
+            if not exists:
+                current_count = self._get_patient_count()
+                overflow = (current_count + 1) - self.max_records
+                if overflow > 0:
+                    self._delete_oldest_patients(overflow)
+
             self.cur.execute("""
                 INSERT OR REPLACE INTO patients
                 (id, gender, full_name, arrival_time, priority_number, service_time_seconds)
@@ -62,7 +102,6 @@ class PatientDB:
                 patient_record.get("priority"),
                 patient_record.get("service_time_seconds"),
             ))
-            self._enforce_max_records()
             self.conn.commit()
 
     def delete_patient(self, patient_id: int):

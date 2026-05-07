@@ -78,6 +78,40 @@
 		}
 	}
 
+	function getPatientsFromState(state) {
+		if (Array.isArray(state?.patients)) return state.patients;
+		if (Array.isArray(state?.all_patients)) return state.all_patients;
+		if (Array.isArray(state?.queue)) return state.queue;
+		if (Array.isArray(state?.patients_preview)) return state.patients_preview;
+		return [];
+	}
+
+	async function tryFetchFullPatients() {
+		const endpoints = ["/api/queue/patients", "/api/patients", "/api/queue/all"];
+		for (const url of endpoints) {
+			try {
+				const res = await fetch(url, { cache: "no-store" });
+				if (!res.ok) continue;
+				const data = await res.json();
+				if (Array.isArray(data)) return data;
+				if (Array.isArray(data?.patients)) return data.patients;
+			} catch (_) {}
+		}
+		return null;
+	}
+
+	async function enrichStateWithFullPatients(state) {
+		const current = getPatientsFromState(state);
+		const expectedCount = Number(state?.count ?? current.length);
+		if (current.length >= expectedCount) return state;
+
+		const full = await tryFetchFullPatients();
+		if (Array.isArray(full) && full.length) {
+			return { ...state, patients: full };
+		}
+		return state;
+	}
+
 	// Funkcja do generowania listy pacjentów w kolejce
 	function renderQueue(state) {
 		if (queueCountEl) {
@@ -88,10 +122,13 @@
 			return;
 		}
 
-		const rows = (state.patients_preview || [])
+		// Preferuj pełną listę; fallback na preview jeśli backend jeszcze jej nie zwraca
+		const patients = getPatientsFromState(state);
+
+		const rows = patients
 			.map((patient) => {
 				const fullName = patient.full_name || `${patient.first_name || ""} ${patient.last_name || ""}`.trim();
-				const priorityText = ["Niebieski", "Zielony", "Żółty", "Pomarańczowy", "Czerwony"][patient.priority - 1] || "-";
+				const priority = Math.max(1, Math.min(5, Number(patient.priority ?? 1)));
 				return `
 					<tr>
 						<td style="border: 1px solid #ddd; padding: 8px;">${patient.id ?? "-"}</td>
@@ -99,18 +136,11 @@
 						<td style="border: 1px solid #ddd; padding: 8px;">${fullName || "-"}</td>
 						<td style="border: 1px solid #ddd; padding: 8px;">${patient.arrival_time ?? "-"}</td>
 						<td style="border: 1px solid #ddd; padding: 8px;">
-							<select class="priority-select patient-priority-select" data-patient-id="${patient.id ?? ""}" style="width: 100%; padding: 4px; border: 1px solid #ddd; border-radius: 3px;">
-								<option value="1" ${patient.priority === 1 ? 'selected' : ''}>1 - Niebieski</option>
-								<option value="2" ${patient.priority === 2 ? 'selected' : ''}>2 - Zielony</option>
-								<option value="3" ${patient.priority === 3 ? 'selected' : ''}>3 - Żółty</option>
-								<option value="4" ${patient.priority === 4 ? 'selected' : ''}>4 - Pomarańczowy</option>
-			// Dodaj obsługę zmiany priorytetu dla wszystkich selektorów
-			const prioritySelects = queueBodyEl.querySelectorAll(".patient-priority-select");
-			prioritySelects.forEach(select => {
-				select.addEventListener("change", handlePriorityChange);
-			});
-		} else {
-			queueBodyEl.innerHTML = '<tr><td colspan="6
+							<div style="display:flex; align-items:center; justify-content:center; gap:8px;">
+								<button type="button" class="priority-btn priority-minus" data-patient-id="${patient.id ?? ""}" data-priority="${priority}">-</button>
+								<span style="min-width: 18px; text-align:center; font-weight:600;">${priority}</span>
+								<button type="button" class="priority-btn priority-plus" data-patient-id="${patient.id ?? ""}" data-priority="${priority}">+</button>
+							</div>
 						</td>
 						<td style="border: 1px solid #ddd; padding: 8px;">${patient.service_time_seconds ?? "-"} s</td>
 					</tr>
@@ -119,20 +149,80 @@
 			.join("");
 
 		if (rows) {
-			queueBodyEl.obsługi zmiany priorytetu pacjenta
-	async function handlePriorityChange(event) {
-		const select = event.target;
-		const patientId = select.getAttribute("data-patient-id");
-		const newPriority = select.value;
+			queueBodyEl.innerHTML = rows;
 
+			const minusButtons = queueBodyEl.querySelectorAll(".priority-minus");
+			minusButtons.forEach((btn) => {
+				btn.addEventListener("click", () => handlePriorityAdjust(btn, -1));
+			});
+
+			const plusButtons = queueBodyEl.querySelectorAll(".priority-plus");
+			plusButtons.forEach((btn) => {
+				btn.addEventListener("click", () => handlePriorityAdjust(btn, +1));
+			});
+		} else {
+			queueBodyEl.innerHTML = '<tr><td colspan="6" style="border: 1px solid #ddd; padding: 8px; color: #666;">Brak osób w kolejce.</td></tr>';
+		}
+
+		// reset starych styli, które psuły kolumny
+		queueBodyEl.style.display = "";
+		queueBodyEl.style.maxHeight = "";
+		queueBodyEl.style.overflowY = "";
+		queueBodyEl.style.width = "";
+		queueBodyEl.querySelectorAll("tr").forEach((tr) => {
+			tr.style.display = "";
+			tr.style.width = "";
+			tr.style.tableLayout = "";
+		});
+
+		const tableEl = queueBodyEl.closest("table");
+		ensureQueueTableScroll(tableEl);
+	}
+
+	function ensureQueueTableScroll(tableEl) {
+		if (!tableEl) return;
+
+		let wrapper = tableEl.parentElement;
+		if (!wrapper || !wrapper.classList.contains("queue-table-scroll")) {
+			wrapper = document.createElement("div");
+			wrapper.className = "queue-table-scroll";
+			tableEl.parentNode.insertBefore(wrapper, tableEl);
+			wrapper.appendChild(tableEl);
+		}
+
+		// ok. 5 wierszy (dopasuj jeśli Twoje wiersze są wyższe/niższe)
+		const rowHeight = 48;
+		wrapper.style.maxHeight = `${rowHeight * 5}px`;
+		wrapper.style.overflowY = "auto";
+		wrapper.style.overflowX = "hidden";
+		wrapper.style.width = "100%";
+
+		// zachowaj poprawny układ kolumn na pełnej szerokości
+		tableEl.style.width = "100%";
+		tableEl.style.tableLayout = "fixed";
+	}
+
+	async function handlePriorityAdjust(button, delta) {
+		const patientId = parseInt(button.getAttribute("data-patient-id"), 10);
+		const currentPriority = parseInt(button.getAttribute("data-priority"), 10);
+		const nextPriority = Math.max(1, Math.min(5, currentPriority + delta));
+
+		if (!Number.isInteger(patientId) || nextPriority === currentPriority) {
+			return;
+		}
+
+		await sendPriorityUpdate(patientId, nextPriority);
+	}
+
+	async function sendPriorityUpdate(patientId, priority) {
 		try {
 			const response = await fetch("/api/queue/change-priority", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
-					patient_id: parseInt(patientId),
-					priority: parseInt(newPriority)
-				})
+					patient_id: patientId,
+					priority: priority,
+				}),
 			});
 
 			if (response.ok) {
@@ -148,19 +238,32 @@
 		}
 	}
 
-	// Funkcja do innerHTML = rows;
-		} else {
-			queueBodyEl.innerHTML = '<tr><td colspan="4" style="border: 1px solid #ddd; padding: 8px; color: #666;">Brak osób w kolejce.</td></tr>';
-		}
+	// Obsługa zmiany priorytetu pacjenta
+	async function handlePriorityChange(event) {
+		const select = event.target;
+		const patientId = select.getAttribute("data-patient-id");
+		const newPriority = select.value;
 
-		if (queueOverflowEl) {
-			if ((state.overflow_count || 0) > 0) {
-				queueOverflowEl.style.display = "block";
-				queueOverflowEl.textContent = `... oraz ${state.overflow_count} osób oczekujących dalej.`;
+		try {
+			const response = await fetch("/api/queue/change-priority", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					patient_id: parseInt(patientId, 10),
+					priority: parseInt(newPriority, 10),
+				}),
+			});
+
+			if (response.ok) {
+				const state = await response.json();
+				applyState(state);
 			} else {
-				queueOverflowEl.style.display = "none";
-				queueOverflowEl.textContent = "";
+				alert("Błąd przy zmianie priorytetu pacjenta.");
+				location.reload();
 			}
+		} catch (error) {
+			console.error("Błąd:", error);
+			alert("Nie udało się zmienić priorytetu.");
 		}
 	}
 
@@ -205,14 +308,12 @@
 	async function refreshQueueState() {
 		try {
 			const response = await fetch("/api/queue/state", { cache: "no-store" });
-			if (!response.ok) {
-				return;
-			}
+			if (!response.ok) return;
 
-			const state = await response.json();
+			let state = await response.json();
+			state = await enrichStateWithFullPatients(state);
 			applyState(state);
-		} catch (error) {
-		}
+		} catch (error) {}
 	}
 
 	// Funkcja resetująca kolejkę przez API

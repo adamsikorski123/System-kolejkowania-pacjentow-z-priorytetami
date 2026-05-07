@@ -19,10 +19,6 @@ def generate_patient_identity():
 
 # Funkcja do generowania priorytetu pacjenta według rozkładu Poissona (lambda=2.5 dla średniej priorytetu ~3)
 def generate_patient_priority(lam_priority=2.5):
-	"""
-	Generuje priorytet pacjenta (1-5) na podstawie rozkładu Poissona
-	lam_priority: parametr lambda rozkładu Poissona
-	"""
 	import numpy as np
 	priority = np.random.poisson(lam_priority) + 1  # +1 aby mieć zakresy od 1 do 5+
 	return min(max(int(priority), 1), 5)  # Ograniczenie do zakresu 1-5
