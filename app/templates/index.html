@@ -3,8 +3,30 @@
 <head>
     <meta charset="UTF-8" />
     <title>System Kolejkowy</title>
+    <style>
+        .priority-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 3px;
+            color: white;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+        .priority-badge-blue { background-color: #0066cc; }
+        .priority-badge-green { background-color: #00cc00; color: black; }
+        .priority-badge-yellow { background-color: #ffcc00; color: black; }
+        .priority-badge-orange { background-color: #ff9900; color: black; }
+        .priority-badge-red { background-color: #ff0000; }
+        
+        .priority-select {
+            padding: 4px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+    </style>
 </head>
-<body style="font-family: Arial, sans-serif; max-width: 600px; margin: auto;" data-wait-time='{{ wait_time|tojson }}' data-current-service-seconds='{{ current_service_seconds|tojson }}'>
+<body style="font-family: Arial, sans-serif; max-width: 800px; margin: auto;" data-wait-time='{{ wait_time|tojson }}' data-current-service-seconds='{{ current_service_seconds|tojson }}'>
 
     <div id="current-card" style="background-color: #d1ecf1; border: 2px solid #0c5460; padding: 15px; border-radius: 5px; margin: 20px 0;">
         <h3 style="margin-top: 0;">Aktualnie przyjmowany:</h3>
@@ -14,7 +36,8 @@
                 ID: {{ current.id if current.id is defined else '-' }} |
                 Płeć: {{ current.gender if current.gender is defined else '-' }} |
                 Przybycie: {{ current.arrival_time if current.arrival_time is defined else '-' }} |
-                Service: {{ current.service_time_seconds if current.service_time_seconds is not none else '-' }} s
+                Service: {{ current.service_time_seconds if current.service_time_seconds is not none else '-' }} s |
+                Priorytet: {{ current.priority if current.priority is defined else '-' }}
             </p>
             <p id="current-empty" style="display: none;">Gabinet wolny - naciśnij przycisk poniżej.</p>
         {% else %}
@@ -55,6 +78,8 @@
                     <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Płeć</th>
                     <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Imię i nazwisko</th>
                     <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Przybycie</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Priorytet</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Czas obsługi</th>
                 </tr>
             </thead>
             <tbody id="queue-body">
@@ -66,11 +91,21 @@
                             {{ patient.full_name if patient.full_name is defined else ((patient.first_name ~ ' ' ~ patient.last_name)|trim) }}
                         </td>
                         <td style="border: 1px solid #ddd; padding: 8px;">{{ patient.arrival_time if patient.arrival_time is defined else '-' }}</td>
+                        <td style="border: 1px solid #ddd; padding: 8px;">
+                            <select class="priority-select patient-priority-select" data-patient-id="{{ patient.id if patient.id is defined else '' }}" style="width: 100%;">
+                                <option value="1" {% if patient.priority == 1 %}selected{% endif %}>1 - Niebieski</option>
+                                <option value="2" {% if patient.priority == 2 %}selected{% endif %}>2 - Zielony</option>
+                                <option value="3" {% if patient.priority == 3 %}selected{% endif %}>3 - Żółty</option>
+                                <option value="4" {% if patient.priority == 4 %}selected{% endif %}>4 - Pomarańczowy</option>
+                                <option value="5" {% if patient.priority == 5 %}selected{% endif %}>5 - Czerwony</option>
+                            </select>
+                        </td>
+                        <td style="border: 1px solid #ddd; padding: 8px;">{{ patient.service_time_seconds if patient.service_time_seconds is defined else '-' }} s</td>
                     </tr>
                 {% endfor %}
                 {% if patients|length == 0 %}
                     <tr>
-                        <td colspan="4" style="border: 1px solid #ddd; padding: 8px; color: #666;">Brak osób w kolejce.</td>
+                        <td colspan="6" style="border: 1px solid #ddd; padding: 8px; color: #666;">Brak osób w kolejce.</td>
                     </tr>
                 {% endif %}
             </tbody>

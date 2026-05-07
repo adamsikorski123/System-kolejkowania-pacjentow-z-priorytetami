@@ -1,9 +1,10 @@
 import time
 import threading
-from flask import Flask, jsonify, redirect, render_template, url_for
+from flask import Flask, jsonify, redirect, render_template, url_for, request
 from flask_restful import Resource, Api
 from flask.views import MethodView
 from app.gen_patient import generate_next_patient_record
+from app.priorities import get_service_time_for_priority
 from .database import PatientDB
 from .login import init_auth
 
@@ -34,16 +35,28 @@ class PatientRegistry:
                 "last_name": last_name,
                 "full_name": f"{first_name} {last_name}",
                 "admission_number": admission_number,
-                "priority_number": priority_number,
+                "priority": priority_number,
                 "arrival_time": time.strftime("%H:%M:%S", time.localtime(arrival_time)),
                 "service_time_seconds": None,
             })
+            self._sort_patients()
         return True
+
+    # Metoda do sortowania pacjentów po priorytecie (wyższy priorytet = przód)
+    def _sort_patients(self):
+        """Sortuje pacjentów malejąco po priorytecie (5 = przód, 1 = koniec)"""
+        def get_priority(patient):
+            # Obsługa zarówno priority jak i priority_number dla kompatybilności
+            priority = patient.get("priority") or patient.get("priority_number")
+            return priority if priority is not None else 1
+        
+        self._patients.sort(key=get_priority, reverse=True)
 
     # Metoda do dodawania pacjenta wygenerowanego przez generator. Przyjmuje gotowy rekord pacjenta i dodaje go do listy oczekujących pacjentów.
     def add_generated_patient(self, patient_record: dict) -> bool:
         with self._lock:
             self._patients.append(patient_record)
+            self._sort_patients()
         return True
 
     # Metoda przenosząca pierwszego pacjenta z kolejki do pola 'current_patient'. Sprawdza, czy minął odpowiedni czas od ostatniego przyjęcia pacjenta (na podstawie czasu obsługi aktualnego pacjenta) i jeśli tak, to przenosi pierwszego pacjenta z listy oczekujących do pola 'current_patient' oraz aktualizuje czas ostatniego przyjęcia.
@@ -76,7 +89,29 @@ class PatientRegistry:
             self._patients = []
             self._current_patient = None
             self._last_admit_time = 0
-            self._current_service_seconds = 0
+
+    # Metoda do zmiany priorytetu pacjenta w kolejce i przesunięcia go na odpowiednią pozycję
+    def change_patient_priority(self, patient_id: int, new_priority: int) -> bool:
+        """
+        Zmienia priorytet pacjenta w kolejce i sortuje kolejkę na nowo.
+        Zwraca True jeśli pacjent został znaleziony i priorytet zmieniony.
+        """
+        if not 1 <= new_priority <= 5:
+            return False
+        
+        with self._lock:
+            patient = None
+            for p in self._patients:
+                if p.get("id") == patient_id:
+                    patient = p
+                    break
+            
+            if patient:
+                patient["priority"] = new_priority
+                patient["service_time_seconds"] = get_service_time_for_priority(new_priority)
+                self._sort_patients()
+                return True
+        return False
 
 patient_registry = PatientRegistry()
 
@@ -221,4 +256,25 @@ def queue_reset():
     patient_db.clear_all_patients()
     state = _build_queue_state()
     state["reset"] = True
+    return jsonify(state)
+
+# Endpoint API do zmiany priorytetu pacjenta w kolejce
+@app.route('/api/queue/change-priority', methods=['POST'])
+def change_priority():
+    data = request.get_json()
+    patient_id = data.get("patient_id")
+    new_priority = data.get("priority")
+    
+    if patient_id is None or new_priority is None:
+        return jsonify({"success": False, "error": "Missing patient_id or priority"}), 400
+    
+    try:
+        patient_id = int(patient_id)
+        new_priority = int(new_priority)
+    except (ValueError, TypeError):
+        return jsonify({"success": False, "error": "Invalid patient_id or priority"}), 400
+    
+    success = patient_registry.change_patient_priority(patient_id, new_priority)
+    state = _build_queue_state()
+    state["success"] = success
     return jsonify(state)

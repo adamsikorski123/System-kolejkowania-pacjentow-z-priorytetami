@@ -59,7 +59,7 @@ class PatientDB:
                 patient_record["gender"],
                 patient_record["full_name"],
                 patient_record["arrival_time"],
-                patient_record.get("priority_number"),
+                patient_record.get("priority"),
                 patient_record.get("service_time_seconds"),
             ))
             self._enforce_max_records()
@@ -95,7 +95,7 @@ class PatientDB:
                 "gender": r[1],
                 "full_name": r[2],
                 "arrival_time": r[3],
-                "priority_number": r[4],
+                "priority": r[4],
                 "service_time_seconds": r[5],
             }
             for r in rows
