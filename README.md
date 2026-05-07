@@ -25,6 +25,12 @@
 
 1. [Analiza potrzeb i wymagań klinicznych](#1-analiza-potrzeb-i-wymagań-klinicznych)
 2. [Projekt architektury systemu](#2-projekt-architektury-systemu)
+3. [Aktualny stan implementacji (zgodny z kodem)](#3-aktualny-stan-implementacji-zgodny-z-kodem)
+4. [Bazy danych (aktualna struktura)](#4-bazy-danych-aktualna-struktura)
+5. [Uruchomienie projektu (lokalnie)](#5-uruchomienie-projektu-lokalnie)
+6. [Zarządzanie kontami użytkowników](#6-zarządzanie-kontami-użytkowników)
+7. [Główne endpointy API](#7-główne-endpointy-api)
+8. [Uwagi wdrożeniowe](#8-uwagi-wdrożeniowe)
 
 ---
 
@@ -120,5 +126,80 @@ QueueEntry
 
 ```
 
+## 3. Aktualny stan implementacji (zgodny z kodem)
 
-najpierw run.py -> ngrok http 5000  (w venv)
+- Kolejka pacjentów działa na priorytetach (1–5), z możliwością ręcznej zmiany priorytetu w UI (`-` / `+`).
+- Lista pacjentów jest wspólna dla wszystkich użytkowników.
+- Przyjęcie pacjenta działa per użytkownik (oddzielny stan bieżącego pacjenta i cooldown dla zalogowanego operatora).
+- Zmiany kolejki są odświeżane cyklicznie po stronie frontend (polling endpointu stanu).
+- Dane są utrwalane w SQLite.
+
+## 4. Bazy danych (aktualna struktura)
+
+Aplikacja używa dwóch oddzielnych plików SQLite:
+
+- `users.db` – konta użytkowników (login, hasło zahashowane),
+- `patients.db` – dane pacjentów i kolejki.
+
+> Bazy są tworzone automatycznie przy pierwszym uruchomieniu aplikacji.
+
+## 5. Uruchomienie projektu (lokalnie)
+
+1. Wejdź do katalogu projektu:
+   `cd c:\Users\adams\OneDrive\Pulpit\RAIM`
+2. Utwórz i aktywuj virtualenv:
+   - `python -m venv .venv`
+   - `.\.venv\Scripts\Activate.ps1`
+3. Zainstaluj zależności:
+   - `python -m pip install --upgrade pip`
+   - `python -m pip install -r requirements.txt`
+4. Uruchom aplikację:
+   - `python run.py`
+5. Otwórz:
+   - `http://127.0.0.1:5000`
+   - lub `http://kolejka.local` (jeśli skonfigurowano wpis w `hosts`).
+
+## 6. Zarządzanie kontami użytkowników
+
+Do zarządzania użytkownikami użyj:
+`python app/add_account.py`
+
+Dostępne komendy:
+- `add` – dodanie konta,
+- `delete` – usunięcie konta,
+- `list` – lista kont,
+- `exit` – wyjście.
+
+## 7. Główne endpointy API
+
+- `GET /api/queue/state` – pełny stan kolejki (w tym `patients`, `current`, `wait_time`),
+- `POST /api/queue/admit` – przyjęcie kolejnego pacjenta przez aktualnego użytkownika,
+- `POST /api/queue/change-priority` – zmiana priorytetu pacjenta,
+- `POST /api/queue/reset` – reset kolejki,
+- `GET /api/queue/version` – uproszczony stan wersji kolejki.
+
+## 8. Uwagi wdrożeniowe
+
+- Aplikacja domyślnie działa na porcie `5000` (można zmienić przez `PORT`).
+- Do testów publicznego dostępu można użyć:
+  - uruchomienia aplikacji lokalnie,
+  - `ngrok http 5000`.
+
+---
+
+## Notatki deweloperskie
+
+1. **Środowisko**: Python 3.10+, Flask, SQLite
+2. **Struktura projektu**:
+   - `app/` – kod aplikacji Flask,
+   - `migrations/` – migracje bazy danych (Alembic),
+   - `tests/` – testy jednostkowe i integracyjne,
+   - `venv/` – virtualenv (nie dołączaj do repozytorium).
+3. **Zarządzanie zależnościami**: Użyj `pip` i `requirements.txt` lub `pipenv`/`poetry`.
+4. **Uruchamianie aplikacji**: `flask run` lub `python -m flask run`.
+5. **Debugowanie**: Włącz tryb debugowania w Flask (`app.run(debug=True)`) lub użyj zewnętrznych narzędzi (np. `pdb`, `werkzeug`).
+6. **Testowanie**: Użyj wbudowanego narzędzia do testowania Pythona lub frameworków takich jak `pytest`.
+7. **Dokumentacja**: Komentuj kod i używaj narzędzi do generowania dokumentacji (np. `Sphinx`).
+8. **Wersjonowanie**: Użyj systemu kontroli wersji (np. `git`) i stosuj się do dobrych praktyk (np. commit message convention).
+9. **CI/CD**: Rozważ użycie narzędzi do ciągłej integracji i dostarczania (np. GitHub Actions, Travis CI).
+10. **Monitorowanie i logowanie**: Zaimplementuj mechanizmy monitorowania i logowania błędów (np. `Sentry`, `Loggly`).
