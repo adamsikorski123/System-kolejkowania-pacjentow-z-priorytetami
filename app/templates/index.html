@@ -24,6 +24,11 @@
             border-radius: 3px;
             cursor: pointer;
         }
+
+        td {
+            text-align: center;
+            vertical-align: middle;
+        }
     </style>
 </head>
 <body style="font-family: Arial, sans-serif; max-width: 800px; margin: auto;" data-wait-time='{{ wait_time|tojson }}' data-current-service-seconds='{{ current_service_seconds|tojson }}'>
@@ -74,17 +79,18 @@
         <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
             <thead>
                 <tr style="background: #f2f2f2;">
-                    <th style="border: 1px solid #ddd; padding: 8px; text-align: right;width: 50px">ID</th>
-                    <th style="border: 1px solid #ddd; padding: 8px; text-align: center;width: 50px">Płeć</th>
-                    <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Imię i nazwisko</th>
-                    <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Przybycie</th>
-                    <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Priorytet</th>
-                    <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Czas obsługi</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: center;width: 40px">ID</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: center;width: 40px">Płeć</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: center;width: 120px">Imię i nazwisko</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: center;width: 100px">Przybycie</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: center;width: 70px">Priorytet</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: center;width: 40px">Czas obsługi</th>
                 </tr>
             </thead>
             <tbody id="queue-body">
                 {% for patient in patients[:3] %}
                     <tr>
+                        
                         <td style="border: 1px solid #ddd; padding: 8px;">{{ patient.id if patient.id is defined else '-' }}</td>
                         <td style="border: 1px solid #ddd; padding: 8px;">{{ patient.gender if patient.gender is defined else '-' }}</td>
                         <td style="border: 1px solid #ddd; padding: 8px;">
@@ -104,9 +110,6 @@
                     </tr>
                 {% endfor %}
                 {% if patients|length == 0 %}
-                    <tr>
-                        <td colspan="6" style="border: 1px solid #ddd; padding: 8px; color: #666;"></td>
-                    </tr>
                 {% endif %}
             </tbody>
         </table>
