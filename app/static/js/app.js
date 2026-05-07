@@ -11,6 +11,12 @@
 	const queueCountEl = document.getElementById("queue-count");
 	const queueBodyEl = document.getElementById("queue-body");
 	const queueOverflowEl = document.getElementById("queue-overflow");
+	const apiLatencyAvgEl = document.getElementById("metric-api-latency-avg");
+	const apiLatencyJitterEl = document.getElementById("metric-api-latency-jitter");
+	const queueWaitAvgEl = document.getElementById("metric-queue-wait-avg");
+	const queueWaitJitterEl = document.getElementById("metric-queue-wait-jitter");
+	const apiLatencyLastEl = document.getElementById("metric-api-latency-last");
+	const queueWaitLastEl = document.getElementById("metric-queue-wait-last");
 
 	// Inicjalizacja czasu oczekiwania i całkowitego czasu obsługi z atrybutów danych
 	let waitTime = Number(body?.dataset?.waitTime ?? "0") || 0;
@@ -248,10 +254,20 @@
 		}
 	}
 
+	function renderLatencyMetrics(state) {
+		if (apiLatencyAvgEl) apiLatencyAvgEl.textContent = `${Number(state.api_latency_avg_ms ?? 0).toFixed(2)} ms`;
+		if (apiLatencyJitterEl) apiLatencyJitterEl.textContent = `${Number(state.api_latency_jitter_ms ?? 0).toFixed(2)} ms`;
+		if (queueWaitAvgEl) queueWaitAvgEl.textContent = `${Number(state.queue_wait_avg_s ?? 0).toFixed(2)} s`;
+		if (queueWaitJitterEl) queueWaitJitterEl.textContent = `${Number(state.queue_wait_jitter_s ?? 0).toFixed(2)} s`;
+		if (apiLatencyLastEl) apiLatencyLastEl.textContent = `${Number(state.api_latency_last_ms ?? 0).toFixed(2)} ms`;
+		if (queueWaitLastEl) queueWaitLastEl.textContent = `${Number(state.queue_wait_last_s ?? 0).toFixed(2)} s`;
+	}
+
 	// Funkcja do zastosowania stanu kolejki i aktualizacji interfejsu
 	function applyState(state) {
 		renderCurrent(state.current || null);
 		renderQueue(state);
+		renderLatencyMetrics(state);
 
 		waitTime = Number(state.wait_time ?? 0) || 0;
 		totalTime = Number(state.current_service_seconds ?? 0) || 0;
@@ -279,13 +295,13 @@
 					applyState(state);
 				}
 			} catch (error) {
+				console.error("Błąd przy przyjmowaniu pacjenta:", error);
 			} finally {
 				btn.innerHTML = "PRZYJMIJ NASTĘPNEGO";
 			}
 		});
 	}
 
-	// Funkcja do okresowego odświeżania stanu kolejki
 	async function refreshQueueState() {
 		try {
 			const response = await fetch("/api/queue/state", { cache: "no-store" });
@@ -294,10 +310,11 @@
 			let state = await response.json();
 			state = validateApiState(state);
 			applyState(state);
-		} catch (error) {}
+		} catch (error) {
+			console.error("Błąd odświeżania kolejki:", error);
+		}
 	}
 
-	// Funkcja resetująca kolejkę przez API
 	async function resetQueue() {
 		const response = await fetch("/api/queue/reset", { method: "POST" });
 		if (!response.ok) {

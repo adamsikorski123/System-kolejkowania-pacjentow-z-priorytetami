@@ -8,6 +8,7 @@ from app.gen_patient import generate_next_patient_record
 from app.priorities import get_service_time_for_priority
 from .database import PatientDB
 from .login import init_auth
+from .latencja import LatencyJitterMeter
 from uuid import uuid4
 
 
@@ -21,6 +22,7 @@ _USERS_DB_PATH = os.path.join(_BASE_DIR, "users.db")
 
 patient_db = PatientDB(db_name=_PATIENTS_DB_PATH, auth_db_name=_USERS_DB_PATH)
 init_auth(app, patient_db)
+latency_meter = LatencyJitterMeter()
 
 # Prosty rejestr pacjentów, który przechowuje listę oczekujących pacjentów oraz aktualnie obsługiwanego pacjenta.
 class PatientRegistry:
@@ -59,6 +61,8 @@ class PatientRegistry:
     # Metoda do dodawania pacjenta wygenerowanego przez generator. Przyjmuje gotowy rekord pacjenta i dodaje go do listy oczekujących pacjentów.
     def add_generated_patient(self, patient_record: dict) -> bool:
         with self._lock:
+            patient_record = dict(patient_record)
+            patient_record.setdefault("arrival_epoch", time.time())
             self._patients.append(patient_record)
             self._sort_patients()
         return True
@@ -216,6 +220,7 @@ class PatientFormView(MethodView):
         patients = patient_db.get_all_patients()
         wait_time = patient_registry.get_wait_time(user_key)
         current_service_seconds = patient_registry.get_current_service_seconds(user_key)
+        metrics = latency_meter.snapshot()
 
         return render_template(
             "index.html",
@@ -223,6 +228,7 @@ class PatientFormView(MethodView):
             current=patient_registry.get_current_patient(user_key),
             wait_time=round(wait_time, 1),
             current_service_seconds=current_service_seconds,
+            metrics=metrics,
             error=None
         )
 
@@ -239,6 +245,7 @@ def _build_queue_state(user_key: str):
     last_id = patients[-1].get("id", 0) if patients else 0
     current_id = current.get("id", 0) if isinstance(current, dict) else 0
 
+    metrics = latency_meter.snapshot()
     return {
         "count": len(patients),
         "last_id": last_id,
@@ -249,6 +256,12 @@ def _build_queue_state(user_key: str):
         "overflow_count": max(0, len(patients) - 3),
         "wait_time": round(wait_time, 1),
         "current_service_seconds": current_service_seconds,
+        "api_latency_last_ms": metrics["api_latency_last_ms"],
+        "api_latency_avg_ms": metrics["api_latency_avg_ms"],
+        "api_latency_jitter_ms": metrics["api_latency_jitter_ms"],
+        "queue_wait_last_s": metrics["queue_wait_last_s"],
+        "queue_wait_avg_s": metrics["queue_wait_avg_s"],
+        "queue_wait_jitter_s": metrics["queue_wait_jitter_s"],
     }
 
 def _normalize_patient(patient):
@@ -289,11 +302,24 @@ def queue_state():
 @app.route('/api/queue/admit', methods=['POST'])
 def queue_admit():
     user_key = _get_request_user_key()
+    t0 = time.perf_counter()
     admitted = patient_registry.admit_patient(user_key)
+
     if admitted:
         current = patient_registry.get_current_patient(user_key)
-        if isinstance(current, dict) and current.get("id") is not None:
-            patient_db.delete_patient(int(current["id"]))
+        if isinstance(current, dict):
+            try:
+                queue_wait_s = max(0.0, time.time() - float(current.get("arrival_epoch", time.time())))
+            except (TypeError, ValueError):
+                queue_wait_s = 0.0
+            latency_meter.record_queue_wait_s(queue_wait_s)
+
+            if current.get("id") is not None:
+                patient_db.delete_patient(int(current["id"]))
+
+    api_latency_ms = (time.perf_counter() - t0) * 1000.0
+    latency_meter.record_api_latency_ms(api_latency_ms)
+
     state = _build_queue_state(user_key)
     state["admitted"] = admitted
     return jsonify(state)
@@ -348,3 +374,7 @@ def change_priority():
     state = _build_queue_state(_get_request_user_key())
     state["success"] = success
     return jsonify(state)
+
+@app.route('/api/metrics/latency', methods=['GET'])
+def latency_metrics():
+    return jsonify(latency_meter.snapshot())
