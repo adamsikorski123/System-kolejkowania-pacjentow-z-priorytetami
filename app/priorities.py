@@ -6,27 +6,27 @@ PRIORITY_CONFIG = {
     1: {
         "name": "niebieski",
         "color": "#0066cc",
-        "service_time_seconds": 5,
+        "service_time_seconds": 2,
     },
     2: {
         "name": "zielony",
         "color": "#00cc00",
-        "service_time_seconds": 7,
+        "service_time_seconds": 4,
     },
     3: {
         "name": "żółty",
         "color": "#ffcc00",
-        "service_time_seconds": 10,
+        "service_time_seconds": 6,
     },
     4: {
         "name": "pomarańczowy",
         "color": "#ff9900",
-        "service_time_seconds": 15,
+        "service_time_seconds": 8,
     },
     5: {
         "name": "czerwony",
         "color": "#ff0000",
-        "service_time_seconds": 20,
+        "service_time_seconds": 10,
     },
 }
 

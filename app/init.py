@@ -162,7 +162,7 @@ def start_background_patient_generation():
         worker.start()
         _generator_started = True
 
-# Klasa widoku obsługująca główną stronę aplikacji. W metodzie GET uruchamia generator pacjentów (jeśli jeszcze nie został uruchomiony), oblicza czas oczekiwania na przyjęcie kolejnego pacjenta oraz renderuje szablon HTML z aktualną listą pacjentów, aktualnie obsługiwanym pacjentem i czasem oczekiwania.
+# Klasa widoku obsługująca główną stronę aplikacji. W metodzie GET uruchamia generator pacjentów (jeśli jeszcze nie został uruchomiony), oblicza czas oczekiwania na przyjęcie kolejnego pacjenta oraz renderuje szablon HTML z aktualną listą pacjentów, aktualnie obsługiwanem pacjentem i czasem oczekiwania.
 class PatientFormView(MethodView):
     def get(self):
         start_background_patient_generation()
@@ -192,8 +192,8 @@ def _build_queue_state():
     current_service_seconds = max(0, int(patient_registry._current_service_seconds or 0))
     wait_time = max(0, current_service_seconds - time_passed) if patient_registry._last_admit_time > 0 else 0
 
-    patients = patient_registry.all_patients()
-    current = patient_registry.get_current_patient()
+    patients = [_normalize_patient(p) for p in patient_registry.all_patients()]
+    current = _normalize_patient(patient_registry.get_current_patient())
 
     last_id = patients[-1].get("id", 0) if patients else 0
     current_id = current.get("id", 0) if isinstance(current, dict) else 0
@@ -203,11 +203,29 @@ def _build_queue_state():
         "last_id": last_id,
         "current_id": current_id,
         "current": current,
-        "patients_preview": patients[:3],
+        "patients": patients,                
+        "patients_preview": patients[:3], 
         "overflow_count": max(0, len(patients) - 3),
         "wait_time": round(wait_time, 1),
         "current_service_seconds": current_service_seconds,
     }
+
+def _normalize_patient(patient):
+    if not isinstance(patient, dict):
+        return patient
+
+    normalized = dict(patient)
+    raw_priority = normalized.get("priority", normalized.get("priority_number", 1))
+
+    try:
+        priority = int(raw_priority)
+    except (TypeError, ValueError):
+        priority = 1
+
+    priority = max(1, min(5, priority))
+    normalized["priority"] = priority
+    normalized["priority_number"] = priority
+    return normalized
 
 # Endpoint API zwracający podstawowe informacje o stanie kolejki, takie jak liczba oczekujących pacjentów, ID ostatniego pacjenta w kolejce oraz ID aktualnie obsługiwanego pacjenta.
 @app.route('/api/queue/version', methods=['GET'])
@@ -224,7 +242,6 @@ def queue_version():
 # Endpoint API zwracający pełny stan kolejki, w tym listę oczekujących pacjentów, aktualnie obsługiwanego pacjenta, czas oczekiwania na przyjęcie kolejnego pacjenta oraz czas obsługi aktualnego pacjenta.
 @app.route('/api/queue/state', methods=['GET'])
 def queue_state():
-    print(patient_db.get_all_patients())
     return jsonify(_build_queue_state())
 
 # Endpoint API zwracający informację o tym, czy udało się przyjąć kolejnego pacjenta oraz aktualny stan kolejki po tej operacji.
@@ -264,17 +281,27 @@ def change_priority():
     data = request.get_json()
     patient_id = data.get("patient_id")
     new_priority = data.get("priority")
-    
+
     if patient_id is None or new_priority is None:
         return jsonify({"success": False, "error": "Missing patient_id or priority"}), 400
-    
+
     try:
         patient_id = int(patient_id)
         new_priority = int(new_priority)
     except (ValueError, TypeError):
         return jsonify({"success": False, "error": "Invalid patient_id or priority"}), 400
-    
+
     success = patient_registry.change_patient_priority(patient_id, new_priority)
+
+    if success:
+        updated = next((p for p in patient_registry.all_patients() if p.get("id") == patient_id), None)
+        if isinstance(updated, dict):
+            updated = dict(updated)
+            updated["priority"] = new_priority
+            updated["priority_number"] = new_priority
+            updated["service_time_seconds"] = get_service_time_for_priority(new_priority)
+            patient_db.add_patient(updated)
+
     state = _build_queue_state()
     state["success"] = success
     return jsonify(state)
