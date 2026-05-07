@@ -8,6 +8,7 @@ from app.gen_patient import generate_next_patient_record
 from app.priorities import get_service_time_for_priority
 from .database import PatientDB
 from .login import init_auth
+from uuid import uuid4
 
 
 app = Flask(__name__)  # Tworzymy instancję aplikacji Flask
@@ -195,10 +196,17 @@ def start_background_patient_generation():
         _generator_started = True
 
 def _get_request_user_key() -> str:
+    # Unikalny klucz sesji operatora (stały w ramach danej sesji przeglądarki)
+    session_key = session.get("_operator_session_key")
+    if not session_key:
+        session_key = uuid4().hex
+        session["_operator_session_key"] = session_key
+
     username = session.get("username")
     if isinstance(username, str) and username.strip():
-        return username.strip()
-    return request.remote_addr or "anonymous"
+        return f"{username.strip()}:{session_key}"
+
+    return f"anonymous:{session_key}"
 
 # Klasa widoku obsługująca główną stronę aplikacji. W metodzie GET uruchamia generator pacjentów (jeśli jeszcze nie został uruchomiony), oblicza czas oczekiwania na przyjęcie kolejnego pacjenta oraz renderuje szablon HTML z aktualną listą pacjentów, aktualnie obsługiwanem pacjentem i czasem oczekiwania.
 class PatientFormView(MethodView):
