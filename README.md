@@ -117,21 +117,22 @@ QueueEntry
 
 ```
 
+---
 ## 3. Symulacja zaburzeń 
 
-```
+
 
 Podczas realizacji projektu napotkano dwa istotne problemy charakterystyczne dla systemów kolejkowych i współbieżnych: starvation oraz race condition. 
 
-```
-## 3.1 Starvation
-```
+
+### 3.1 Starvation
+
 
 Starvation oznacza sytuację, w której element o niższym priorytecie może być przez długi czas pomijany, ponieważ system stale preferuje elementy o priorytecie wyższym. W kontekście naszego projektu oznacza to, że pacjent o niskim priorytecie mógł oczekiwać znacznie dłużej, jeśli w kolejce nieustannie pojawiali się pacjenci pilniejsi. Zjawisko to jest dobrze znane z teorii planowania zadań w systemach operacyjnych i stanowi naturalne ryzyko w algorytmach priorytetowych.
 
-```
-## 3.2 Race Condition
-```
+
+### 3.2 Race Condition
+
 
 Drugim zaobserwowanym problemem był race condition, czyli błąd współbieżności pojawiający się wtedy, gdy dwie osoby jednocześnie modyfikują te same dane. W naszym przypadku dotyczyło to równoczesnej zmiany priorytetu tego samego pacjenta przez dwóch użytkowników systemu. Przykładowo, jeśli pacjent miał ustawiony priorytet 4, jedna osoba mogła kliknąć obniżenie priorytetu, a druga jego podwyższenie. Ze względu na opóźnienie aktualizacji danych w bazie oraz brak pełnej synchronizacji widoków, system mógł chwilowo pokazać priorytet 3, a następnie przeskoczyć na 5. Tego typu zachowanie jest przykładem konfliktu współbieżnych zapisów i pokazuje, że końcowy stan danych zależał od kolejności wykonania operacji.
 
@@ -140,18 +141,16 @@ Drugim zaobserwowanym problemem był race condition, czyli błąd współbieżno
 Opisane problemy pokazują, że projektowanie systemów kolejkowych nie ogranicza się jedynie do ustalenia zasad obsługi pacjentów, ale wymaga również uwzględnienia sprawiedliwości działania algorytmu oraz odporności na jednoczesny dostęp wielu użytkowników. W praktyce ograniczanie starvation może wymagać zastosowania mechanizmów zwiększania priorytetu wraz z czasem oczekiwania, natomiast redukcja race condition wymaga lepszej kontroli współbieżności, na przykład blokad, transakcji lub mechanizmów wykrywania konfliktów zapisu.
 
 
-
-```
+---
 
 ## 4. Instrumentacja
 
-```
+
 W analizie wydajności systemu instrumentacja oznacza zastosowanie dodatkowych mechanizmów rejestrujących zdarzenia oraz czasy ich występowania w trakcie działania aplikacji. Jej celem jest zebranie danych, które pozwalają mierzyć i oceniać zachowanie systemu pod względem wydajnościowym, na przykład czas obsługi operacji, czas oczekiwania lub opóźnienia komunikacyjne.
 
 
-```
-## 4.1 API latencja last
-```
+### 4.1 API latencja last
+
 W odniesieniu do latencji instrumentacja umożliwia wyznaczenie czasu potrzebnego na realizację konkretnego działania, na przykład zapisania zmiany priorytetu pacjenta do bazy danych albo odświeżenia widoku kolejki po stronie użytkownika. Porównanie momentu rozpoczęcia i zakończenia operacji pozwala obliczyć opóźnienie, a analiza wielu takich pomiarów umożliwia ocenę wydajności całego systemu lub jego poszczególnych komponentów.
 
 W naszym programie tuż po wejściu do endpointu zapisywany jest czas startu. Następnie wykonywana jest logika endpointu - między t0 a końcem pomiaru działają operacje backendowe, m.in.:
@@ -161,13 +160,13 @@ W naszym programie tuż po wejściu do endpointu zapisywany jest czas startu. Na
 -aktualizacje stanu.
 
 Koniec pomiaru i obliczenie latencji.
-```
-## 4.2 API latencja avg
-```
+
+### 4.2 API latencja avg
+
 
 Średni czas obsługi żądania API (w ms), liczony z ostatnich próbek.
 
-```
-## 4.3 API jitter
+
+### 4.3 API jitter
 
 Istotnym uzupełnieniem pomiaru latencji jest pomiar jitteru, czyli zmienności opóźnienia pomiędzy kolejnymi wykonaniami tej samej lub podobnej operacji. Jitter pokazuje, na ile stabilny czasowo jest system: nawet jeśli średnia latencja pozostaje akceptowalna, duże wahania pomiędzy kolejnymi pomiarami mogą świadczyć o niestabilności działania, przeciążeniu lub problemach ze współbieżnością. Dzięki instrumentacji możliwe jest więc nie tylko określenie średniego czasu odpowiedzi, ale także ocena, czy system działa w sposób przewidywalny i powtarzalny.
