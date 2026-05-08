@@ -1,6 +1,3 @@
-"""
-Definicja priorytetów pacjentów (1-5) z kolorami i czasami obsługi
-"""
 
 PRIORITY_CONFIG = {
     1: {

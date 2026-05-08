@@ -9,7 +9,7 @@ class PatientDB:
     def __init__(self, db_name=None, max_records=None, auth_db_name=None):
         base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
-        # Nowe bazy od zera (bez migracji i bez fallbacków)
+      
         self.patients_db_path = db_name or os.path.join(base_dir, "patients.db")
         self.auth_db_path = auth_db_name or os.path.join(base_dir, "users.db")
 

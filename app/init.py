@@ -50,7 +50,6 @@ class PatientRegistry:
 
     # Metoda do sortowania pacjentów po priorytecie (wyższy priorytet = przód)
     def _sort_patients(self):
-        """Sortuje pacjentów malejąco po priorytecie (5 = przód, 1 = koniec)"""
         def get_priority(patient):
             # Obsługa zarówno priority jak i priority_number dla kompatybilności
             priority = patient.get("priority") or patient.get("priority_number")
@@ -112,10 +111,7 @@ class PatientRegistry:
 
     # Metoda do zmiany priorytetu pacjenta w kolejce i przesunięcia go na odpowiednią pozycję
     def change_patient_priority(self, patient_id: int, new_priority: int) -> bool:
-        """
-        Zmienia priorytet pacjenta w kolejce i sortuje kolejkę na nowo.
-        Zwraca True jeśli pacjent został znaleziony i priorytet zmieniony.
-        """
+
         if not 1 <= new_priority <= 5:
             return False
         

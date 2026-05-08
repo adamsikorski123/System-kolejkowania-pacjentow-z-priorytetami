@@ -1,9 +1,5 @@
 from pathlib import Path
-
-try:
-    from app.database import PatientDB
-except ImportError:
-    from database import PatientDB
+from database import PatientDB
 
 
 def print_help():
