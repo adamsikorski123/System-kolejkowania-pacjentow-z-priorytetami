@@ -1,9 +1,8 @@
-import random
-from datetime import datetime
-
-from scripts.simulate_patients import poisson_patient_generator
-from app.nazwy import IMIONA_MESKIE, IMIONA_ZENSKIE, NAZWISKA_MESKIE, NAZWISKA_ZENSKIE
-from app.priorities import get_service_time_for_priority
+import random # standardowa biblioteka do generowania losowych danych
+from datetime import datetime # standardowa biblioteka do obsługi dat i czasu
+from scripts.simulate_patients import poisson_patient_generator # import generatora pacjentów z modułu simulate_patients.py
+from app.nazwy import IMIONA_MESKIE, IMIONA_ZENSKIE, NAZWISKA_MESKIE, NAZWISKA_ZENSKIE # import list imion i nazwisk z modułu nazwy.py
+from app.priorities import get_service_time_for_priority # import funkcji do obliczania czasu obsługi na podstawie priorytetu z modułu priorities.py
 
 # Prosty generator pacjentów, który losuje płeć i dobiera zgodne imię + nazwisko.
 def generate_patient_identity():

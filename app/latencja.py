@@ -1,5 +1,5 @@
-from collections import deque
-import threading
+from collections import deque # standardowa biblioteka do obsługi kolejek o stałej długości
+import threading # standardowa biblioteka do obsługi wątków
 
 
 class LatencyJitterMeter:

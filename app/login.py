@@ -1,5 +1,5 @@
-from flask import Blueprint, request, session, redirect, url_for, render_template, make_response
-import time
+from flask import Blueprint, request, session, redirect, url_for, render_template, make_response # importowanie potrzebnych funkcji i klas z frameworka Flask
+import time # standardowa biblioteka do obsługi czasu
 
 auth_bp = Blueprint("auth", __name__)
 

@@ -1,19 +1,19 @@
-import time
-import threading
-import os
-from flask import Flask, jsonify, redirect, render_template, url_for, request, session
-from flask_restful import Resource, Api
-from flask.views import MethodView
-from app.gen_patient import generate_next_patient_record
-from app.priorities import get_service_time_for_priority
-from .database import PatientDB
-from .login import init_auth
-from .latencja import LatencyJitterMeter
-from uuid import uuid4
+import time # Używane do zarządzania czasem, np. do obliczania czasu oczekiwania i czasu obsługi pacjentów
+import threading # Używane do synchronizacji dostępu do wspólnych zasobów (np. listy pacjentów) oraz do uruchamiania generatora pacjentów w osobnym wątku
+import os # Używane do zarządzania ścieżkami do plików bazy danych
+from flask import Flask, jsonify, redirect, render_template, url_for, request, session # Używane do obsługi żądań HTTP, zarządzania sesjami i renderowania szablonów HTML
+from flask_restful import Resource, Api # Używane do tworzenia API RESTful
+from flask.views import MethodView # Używane do tworzenia klas widoków obsługujących żądania HTTP
+from app.gen_patient import generate_next_patient_record # Używane do generowania losowych rekordów pacjentów
+from app.priorities import get_service_time_for_priority # Używane do określania czasu obsługi pacjenta na podstawie jego priorytetu
+from .database import PatientDB # Używane do zarządzania bazą danych pacjentów i użytkowników
+from .login import init_auth # Używane do inicjalizacji mechanizmu uwierzytelniania użytkowników
+from .latencja import LatencyJitterMeter # Używane do pomiaru i raportowania metryk związanych z opóźnieniami API i czasem oczekiwania w kolejce
+from uuid import uuid4 # Używane do generowania unikalnych kluczy sesji dla operatorów
 
 
 app = Flask(__name__)  # Tworzymy instancję aplikacji Flask
-app.config["SECRET_KEY"] = "change-this-secret-key"
+app.config["SECRET_KEY"] = "change-this-secret-key" # Ustawiamy klucz tajny dla Flask, który jest używany do zarządzania sesjami i innymi funkcjami bezpieczeństwa (należy zmienić na coś unikalnego i bezpiecznego w produkcji)
 api = Api(app)
 
 _BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -21,15 +21,15 @@ _PATIENTS_DB_PATH = os.path.join(_BASE_DIR, "patients.db")
 _USERS_DB_PATH = os.path.join(_BASE_DIR, "users.db")
 
 patient_db = PatientDB(db_name=_PATIENTS_DB_PATH, auth_db_name=_USERS_DB_PATH)
-init_auth(app, patient_db)
-latency_meter = LatencyJitterMeter()
+init_auth(app, patient_db) # Inicjalizujemy mechanizm uwierzytelniania użytkowników, przekazując aplikację Flask i bazę danych pacjentów (która zawiera również informacje o użytkownikach)
+latency_meter = LatencyJitterMeter() # Tworzymy instancję miernika opóźnień i jittera
 
 # Prosty rejestr pacjentów, który przechowuje listę oczekujących pacjentów oraz aktualnie obsługiwanego pacjenta.
 class PatientRegistry:
     def __init__(self):
         self._patients = []
-        self._user_states = {}  # user_key -> {"current_patient", "last_admit_time", "current_service_seconds"}
-        self._lock = threading.Lock()
+        self._user_states = {}
+        self._lock = threading.Lock() # Używamy blokady do synchronizacji dostępu do listy pacjentów i stanu użytkowników, aby uniknąć problemów z równoczesnym dostępem z różnych wątków (np. głównego wątku obsługującego żądania HTTP i wątku generatora pacjentów)
 
     # Metoda do dodawania pacjenta do kolejki. Przyjmuje dane pacjenta i tworzy rekord, który jest dodawany do listy oczekujących pacjentów.
     def add_patient(self, first_name: str, last_name: str, admission_number: int, priority_number: int, arrival_time: float, gender: str) -> bool:
@@ -66,6 +66,7 @@ class PatientRegistry:
             self._sort_patients()
         return True
 
+    # Metoda pomocnicza do pobierania lub tworzenia stanu użytkownika na podstawie unikalnego klucza. Stan użytkownika zawiera informacje o aktualnie obsługiwanym pacjencie, czasie ostatniego przyjęcia pacjenta oraz czasie obsługi aktualnego pacjenta.
     def _get_or_create_user_state(self, user_key: str):
         state = self._user_states.get(user_key)
         if state is None:
@@ -93,6 +94,7 @@ class PatientRegistry:
                 state["last_admit_time"] = current_time
                 return True
             return False
+        
     # Metoda zwracająca aktualnie obsługiwanego pacjenta.
     def get_current_patient(self, user_key: str):
         with self._lock:
@@ -104,31 +106,34 @@ class PatientRegistry:
         with self._lock:
             return list(self._patients)
 
+    # Metoda do czyszczenia rejestru pacjentów i stanu użytkowników (przydatna do testów lub resetowania stanu aplikacji).
     def clear(self):
         with self._lock:
             self._patients = []
             self._user_states = {}
 
+    #!!!! WSPÓŁBIEŻNOŚĆ
     # Metoda do zmiany priorytetu pacjenta w kolejce i przesunięcia go na odpowiednią pozycję
     def change_patient_priority(self, patient_id: int, new_priority: int) -> bool:
-
         if not 1 <= new_priority <= 5:
             return False
-        
-        with self._lock:
-            patient = None
-            for p in self._patients:
-                if p.get("id") == patient_id:
-                    patient = p
-                    break
-            
-            if patient:
-                patient["priority"] = new_priority
-                patient["service_time_seconds"] = get_service_time_for_priority(new_priority)
-                self._sort_patients()
-                return True
+
+                #with self._lock:
+        patient = None
+        for p in self._patients:
+            if p.get("id") == patient_id:
+                patient = p
+                break
+
+        if patient:
+            patient["priority"] = new_priority
+            patient["service_time_seconds"] = get_service_time_for_priority(new_priority)
+            self._sort_patients()
+            return True
+
         return False
 
+    # Metoda do obliczania czasu oczekiwania na przyjęcie kolejnego pacjenta. Oblicza czas, który pozostał do momentu, gdy będzie można przyjąć kolejnego pacjenta, na podstawie czasu ostatniego przyjęcia i czasu obsługi aktualnego pacjenta.
     def get_wait_time(self, user_key: str) -> float:
         with self._lock:
             state = self._get_or_create_user_state(user_key)
@@ -141,6 +146,7 @@ class PatientRegistry:
             time_passed = time.time() - last_admit_time
             return max(0.0, current_service_seconds - time_passed)
 
+    # Metoda do pobierania czasu obsługi aktualnego pacjenta. Zwraca czas obsługi aktualnie obsługiwanego pacjenta, który jest przechowywany w stanie użytkownika.
     def get_current_service_seconds(self, user_key: str) -> int:
         with self._lock:
             state = self._get_or_create_user_state(user_key)
@@ -148,14 +154,15 @@ class PatientRegistry:
 
 patient_registry = PatientRegistry()
 
+# Przy starcie aplikacji ładujemy pacjentów z bazy danych do rejestru pacjentów, aby mieć aktualną listę oczekujących pacjentów i ich dane.
 def _restore_registry_from_db():
     for patient in patient_db.get_all_patients():
         patient_registry.add_generated_patient(patient)
 
 _restore_registry_from_db()
 
-_generator_started = False
-_generator_start_lock = threading.Lock()
+_generator_started = False # Flaga informująca, czy generator pacjentów został już uruchomiony, aby uniknąć wielokrotnego uruchamiania generatora w przypadku wielu żądań do głównej strony aplikacji.
+_generator_start_lock = threading.Lock() # Blokada do synchronizacji dostępu do flagi _generator_started, aby uniknąć problemów z równoczesnym dostępem z różnych wątków (np. głównego wątku obsługującego żądania HTTP i wątku generatora pacjentów)
 
 # Funkcja uruchamiająca w tle generator pacjentów. Generuje pacjentów w nieskończoność, dodając ich do rejestru pacjentów z odpowiednimi opóźnieniami między kolejnymi generacjami.
 def _patient_generation_worker():
@@ -187,16 +194,16 @@ def _patient_generation_worker():
 def start_background_patient_generation():
     global _generator_started
 
-    with _generator_start_lock:
+    with _generator_start_lock: # Blokada do synchronizacji dostępu do flagi _generator_started, aby uniknąć problemów z równoczesnym dostępem z różnych wątków (np. głównego wątku obsługującego żądania HTTP i wątku generatora pacjentów)
         if _generator_started:
             return
 
-        worker = threading.Thread(target=_patient_generation_worker, daemon=True)
+        worker = threading.Thread(target=_patient_generation_worker, daemon=True) # Tworzymy wątek, który będzie uruchamiał funkcję _patient_generation_worker. Ustawiamy go jako daemon, aby zakończył się automatycznie po zamknięciu aplikacji.
         worker.start()
         _generator_started = True
 
+# Funkcja pomocnicza do generowania unikalnego klucza dla operatora na podstawie nazwy użytkownika (jeśli jest dostępna) i unikalnego klucza sesji. Ten klucz jest używany do przechowywania stanu użytkownika w rejestrze pacjentów, aby mieć oddzielny stan dla każdego operatora (np. aktualnie obsługiwany pacjent, czas ostatniego przyjęcia pacjenta itp.).
 def _get_request_user_key() -> str:
-    # Unikalny klucz sesji operatora (stały w ramach danej sesji przeglądarki)
     session_key = session.get("_operator_session_key")
     if not session_key:
         session_key = uuid4().hex
@@ -210,6 +217,7 @@ def _get_request_user_key() -> str:
 
 # Klasa widoku obsługująca główną stronę aplikacji. W metodzie GET uruchamia generator pacjentów (jeśli jeszcze nie został uruchomiony), oblicza czas oczekiwania na przyjęcie kolejnego pacjenta oraz renderuje szablon HTML z aktualną listą pacjentów, aktualnie obsługiwanem pacjentem i czasem oczekiwania.
 class PatientFormView(MethodView):
+    # Metoda obsługująca żądania GET do głównej strony aplikacji. Uruchamia generator pacjentów (jeśli jeszcze nie został uruchomiony), pobiera aktualną listę pacjentów, oblicza czas oczekiwania na przyjęcie kolejnego pacjenta oraz renderuje szablon HTML z tymi informacjami.
     def get(self):
         start_background_patient_generation()
         user_key = _get_request_user_key()
@@ -218,6 +226,7 @@ class PatientFormView(MethodView):
         current_service_seconds = patient_registry.get_current_service_seconds(user_key)
         metrics = latency_meter.snapshot()
 
+        # Renderujemy szablon HTML "index.html", przekazując do niego listę pacjentów, aktualnie obsługiwanego pacjenta, czas oczekiwania na przyjęcie kolejnego pacjenta, czas obsługi aktualnego pacjenta oraz metryki opóźnień API i czasu oczekiwania w kolejce. Szablon HTML będzie odpowiedzialny za wyświetlenie tych informacji w czytelny sposób dla operatora.
         return render_template(
             "index.html",
             patients=patients,
@@ -260,6 +269,7 @@ def _build_queue_state(user_key: str):
         "queue_wait_jitter_s": metrics["queue_wait_jitter_s"],
     }
 
+# Funkcja pomocnicza do normalizacji danych pacjenta, która zapewnia, że dane pacjenta mają spójny format, np. konwertuje priorytet na liczbę całkowitą i zapewnia, że jest w odpowiednim zakresie (1-5). Ta funkcja jest używana przed zwróceniem danych pacjenta w API, aby mieć pewność, że dane są spójne i łatwe do obsługi po stronie klienta.
 def _normalize_patient(patient):
     if not isinstance(patient, dict):
         return patient
@@ -297,7 +307,7 @@ def queue_state():
 # Endpoint API zwracający informację o tym, czy udało się przyjąć kolejnego pacjenta oraz aktualny stan kolejki po tej operacji.
 @app.route('/api/queue/admit', methods=['POST'])
 def queue_admit():
-    user_key = _get_request_user_key()
+    user_key = _get_request_user_key() # Pobieramy unikalny klucz użytkownika na podstawie sesji, aby mieć oddzielny stan dla każdego operatora (np. aktualnie obsługiwany pacjent, czas ostatniego przyjęcia pacjenta itp.)
     t0 = time.perf_counter()
     admitted = patient_registry.admit_patient(user_key)
 
@@ -308,12 +318,12 @@ def queue_admit():
                 queue_wait_s = max(0.0, time.time() - float(current.get("arrival_epoch", time.time())))
             except (TypeError, ValueError):
                 queue_wait_s = 0.0
-            latency_meter.record_queue_wait_s(queue_wait_s)
+            latency_meter.record_queue_wait_s(queue_wait_s) # Rejestrujemy czas oczekiwania pacjenta w kolejce jako metrykę, aby mieć informacje o tym, jak długo pacjenci czekają na przyjęcie do obsługi.
 
             if current.get("id") is not None:
                 patient_db.delete_patient(int(current["id"]))
 
-    api_latency_ms = (time.perf_counter() - t0) * 1000.0
+    api_latency_ms = (time.perf_counter() - t0) * 1000.0 # Obliczamy czas trwania operacji przyjęcia pacjenta w milisekundach, aby mieć metrykę opóźnienia API dla tego endpointu.
     latency_meter.record_api_latency_ms(api_latency_ms)
 
     state = _build_queue_state(user_key)
@@ -371,6 +381,7 @@ def change_priority():
     state["success"] = success
     return jsonify(state)
 
+# Endpoint API zwracający metryki związane z opóźnieniami API i czasem oczekiwania w kolejce, takie jak ostatnie, średnie i jitter dla obu tych metryk.
 @app.route('/api/metrics/latency', methods=['GET'])
-def latency_metrics():
+def latency_metrics(): 
     return jsonify(latency_meter.snapshot())

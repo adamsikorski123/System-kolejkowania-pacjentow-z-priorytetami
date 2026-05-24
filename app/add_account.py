@@ -1,7 +1,8 @@
-from pathlib import Path
-from database import PatientDB
+from pathlib import Path # standardowa biblioteka do obsługi ścieżek
+from database import PatientDB # import klasy PatientDB z modułu database.py
 
 
+# Prosty skrypt do zarządzania kontami użytkowników (operatorów) w bazie danych. Umożliwia dodawanie, usuwanie i wyświetlanie aktualnych użytkowników.
 def print_help():
     print("\n=== Zarządzanie kontami ===")
     print("Dostępne komendy:")
@@ -10,7 +11,7 @@ def print_help():
     print("  list    - pokaż aktualnych użytkowników")
     print("  exit    - wyjście\n")
 
-
+# Główna funkcja skryptu, która tworzy instancję bazy danych pacjentów (PatientDB) i w pętli obsługuje komendy użytkownika do zarządzania kontami. Użytkownik może dodawać nowe konta, usuwać istniejące konta oraz wyświetlać listę aktualnych użytkowników. Skrypt działa w trybie interaktywnym, aż do momentu wpisania komendy "exit".
 def main():
     project_root = Path(__file__).resolve().parents[1]
     patients_db = str(project_root / "patients.db")

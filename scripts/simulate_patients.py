@@ -1,6 +1,6 @@
-from dataclasses import dataclass
+from dataclasses import dataclass # standardowa biblioteka do tworzenia klas danych (proste klasy do przechowywania danych)
 
-import numpy as np
+import numpy as np # biblioteka do obsługi zaawansowanych operacji matematycznych i statystycznych, w tym rozkładu Poissona
 
 # Prosty generator pacjentów na podstawie rozkładu Poissona dla przybyć i czasu obsługi.
 @dataclass
