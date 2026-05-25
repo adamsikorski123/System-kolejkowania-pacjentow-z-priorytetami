@@ -295,6 +295,8 @@
 				if (response.ok) {
 					const state = await response.json();
 					applyState(state);
+				} else {
+					alert("Pacjent został już przyjęty przez innego operatora!");
 				}
 			} catch (error) {
 				console.error("Błąd przy przyjmowaniu pacjenta:", error);
