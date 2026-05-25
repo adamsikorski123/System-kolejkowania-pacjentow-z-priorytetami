@@ -29,23 +29,23 @@ class PatientRegistry:
     def __init__(self):
         self._patients = []
         self._user_states = {}
-        self._lock = threading.Lock() # Używamy blokady do synchronizacji dostępu do listy pacjentów i stanu użytkowników, aby uniknąć problemów z równoczesnym dostępem z różnych wątków (np. głównego wątku obsługującego żądania HTTP i wątku generatora pacjentów)
+        #self._lock = threading.Lock() # Używamy blokady do synchronizacji dostępu do listy pacjentów i stanu użytkowników, aby uniknąć problemów z równoczesnym dostępem z różnych wątków (np. głównego wątku obsługującego żądania HTTP i wątku generatora pacjentów)
 
     # Metoda do dodawania pacjenta do kolejki. Przyjmuje dane pacjenta i tworzy rekord, który jest dodawany do listy oczekujących pacjentów.
     def add_patient(self, first_name: str, last_name: str, admission_number: int, priority_number: int, arrival_time: float, gender: str) -> bool:
-        with self._lock:
-            self._patients.append({
-                "id": admission_number,
-                "gender": gender,
-                "first_name": first_name,
-                "last_name": last_name,
-                "full_name": f"{first_name} {last_name}",
-                "admission_number": admission_number,
-                "priority": priority_number,
-                "arrival_time": time.strftime("%H:%M:%S", time.localtime(arrival_time)),
-                "service_time_seconds": None,
-            })
-            self._sort_patients()
+        #with self._lock:
+        self._patients.append({
+            "id": admission_number,
+            "gender": gender,
+            "first_name": first_name,
+            "last_name": last_name,
+            "full_name": f"{first_name} {last_name}",
+            "admission_number": admission_number,
+            "priority": priority_number,
+            "arrival_time": time.strftime("%H:%M:%S", time.localtime(arrival_time)),
+            "service_time_seconds": None,
+        })
+        self._sort_patients()
         return True
 
     # Metoda do sortowania pacjentów po priorytecie (wyższy priorytet = przód)
@@ -59,11 +59,11 @@ class PatientRegistry:
 
     # Metoda do dodawania pacjenta wygenerowanego przez generator. Przyjmuje gotowy rekord pacjenta i dodaje go do listy oczekujących pacjentów.
     def add_generated_patient(self, patient_record: dict) -> bool:
-        with self._lock:
-            patient_record = dict(patient_record)
-            patient_record.setdefault("arrival_epoch", time.time())
-            self._patients.append(patient_record)
-            self._sort_patients()
+        #with self._lock:
+        patient_record = dict(patient_record)
+        patient_record.setdefault("arrival_epoch", time.time())
+        self._patients.append(patient_record)
+        self._sort_patients()
         return True
 
     # Metoda pomocnicza do pobierania lub tworzenia stanu użytkownika na podstawie unikalnego klucza. Stan użytkownika zawiera informacje o aktualnie obsługiwanym pacjencie, czasie ostatniego przyjęcia pacjenta oraz czasie obsługi aktualnego pacjenta.
@@ -81,36 +81,36 @@ class PatientRegistry:
     # Metoda przenosząca pierwszego pacjenta z kolejki do pola 'current_patient'. Sprawdza, czy minął odpowiedni czas od ostatniego przyjęcia pacjenta (na podstawie czasu obsługi aktualnego pacjenta) i jeśli tak, to przenosi pierwszego pacjenta z listy oczekujących do pola 'current_patient' oraz aktualizuje czas ostatniego przyjęcia.
     def admit_patient(self, user_key: str):
         current_time = time.time()
-        with self._lock:
-            state = self._get_or_create_user_state(user_key)
-            cooldown_seconds = max(0, int(state["current_service_seconds"] or 0))
-            if current_time - float(state["last_admit_time"] or 0) < cooldown_seconds:
-                return False
-
-            if self._patients:
-                state["current_patient"] = self._patients.pop(0)
-                current_service = state["current_patient"].get("service_time_seconds")
-                state["current_service_seconds"] = int(current_service) if isinstance(current_service, (int, float)) else 5
-                state["last_admit_time"] = current_time
-                return True
+        #with self._lock:
+        state = self._get_or_create_user_state(user_key)
+        cooldown_seconds = max(0, int(state["current_service_seconds"] or 0))
+        if current_time - float(state["last_admit_time"] or 0) < cooldown_seconds:
             return False
+
+        if self._patients:
+            state["current_patient"] = self._patients.pop(0)
+            current_service = state["current_patient"].get("service_time_seconds")
+            state["current_service_seconds"] = int(current_service) if isinstance(current_service, (int, float)) else 5
+            state["last_admit_time"] = current_time
+            return True
+        return False
         
     # Metoda zwracająca aktualnie obsługiwanego pacjenta.
     def get_current_patient(self, user_key: str):
-        with self._lock:
-            state = self._get_or_create_user_state(user_key)
-            return state["current_patient"]
+        #with self._lock:
+        state = self._get_or_create_user_state(user_key)
+        return state["current_patient"]
 
     # Metoda zwracająca listę wszystkich oczekujących pacjentów.
     def all_patients(self):
-        with self._lock:
-            return list(self._patients)
+        #with self._lock:
+        return list(self._patients)
 
     # Metoda do czyszczenia rejestru pacjentów i stanu użytkowników (przydatna do testów lub resetowania stanu aplikacji).
     def clear(self):
-        with self._lock:
-            self._patients = []
-            self._user_states = {}
+        #with self._lock:
+        self._patients = []
+        self._user_states = {}
 
     #!!!! WSPÓŁBIEŻNOŚĆ
     # Metoda do zmiany priorytetu pacjenta w kolejce i przesunięcia go na odpowiednią pozycję
@@ -135,22 +135,22 @@ class PatientRegistry:
 
     # Metoda do obliczania czasu oczekiwania na przyjęcie kolejnego pacjenta. Oblicza czas, który pozostał do momentu, gdy będzie można przyjąć kolejnego pacjenta, na podstawie czasu ostatniego przyjęcia i czasu obsługi aktualnego pacjenta.
     def get_wait_time(self, user_key: str) -> float:
-        with self._lock:
-            state = self._get_or_create_user_state(user_key)
-            last_admit_time = float(state.get("last_admit_time") or 0.0)
-            current_service_seconds = max(0, int(state.get("current_service_seconds") or 0))
+        #with self._lock:
+        state = self._get_or_create_user_state(user_key)
+        last_admit_time = float(state.get("last_admit_time") or 0.0)
+        current_service_seconds = max(0, int(state.get("current_service_seconds") or 0))
 
-            if last_admit_time <= 0:
-                return 0.0
+        if last_admit_time <= 0:
+            return 0.0
 
-            time_passed = time.time() - last_admit_time
-            return max(0.0, current_service_seconds - time_passed)
+        time_passed = time.time() - last_admit_time
+        return max(0.0, current_service_seconds - time_passed)
 
     # Metoda do pobierania czasu obsługi aktualnego pacjenta. Zwraca czas obsługi aktualnie obsługiwanego pacjenta, który jest przechowywany w stanie użytkownika.
     def get_current_service_seconds(self, user_key: str) -> int:
-        with self._lock:
-            state = self._get_or_create_user_state(user_key)
-            return max(0, int(state.get("current_service_seconds") or 0))
+        #with self._lock:
+        state = self._get_or_create_user_state(user_key)
+        return max(0, int(state.get("current_service_seconds") or 0))
 
 patient_registry = PatientRegistry()
 
@@ -162,7 +162,7 @@ def _restore_registry_from_db():
 _restore_registry_from_db()
 
 _generator_started = False # Flaga informująca, czy generator pacjentów został już uruchomiony, aby uniknąć wielokrotnego uruchamiania generatora w przypadku wielu żądań do głównej strony aplikacji.
-_generator_start_lock = threading.Lock() # Blokada do synchronizacji dostępu do flagi _generator_started, aby uniknąć problemów z równoczesnym dostępem z różnych wątków (np. głównego wątku obsługującego żądania HTTP i wątku generatora pacjentów)
+#_generator_start_lock = threading.Lock() # Blokada do synchronizacji dostępu do flagi _generator_started, aby uniknąć problemów z równoczesnym dostępem z różnych wątków (np. głównego wątku obsługującego żądania HTTP i wątku generatora pacjentów)
 
 # Funkcja uruchamiająca w tle generator pacjentów. Generuje pacjentów w nieskończoność, dodając ich do rejestru pacjentów z odpowiednimi opóźnieniami między kolejnymi generacjami.
 def _patient_generation_worker():
@@ -194,13 +194,13 @@ def _patient_generation_worker():
 def start_background_patient_generation():
     global _generator_started
 
-    with _generator_start_lock: # Blokada do synchronizacji dostępu do flagi _generator_started, aby uniknąć problemów z równoczesnym dostępem z różnych wątków (np. głównego wątku obsługującego żądania HTTP i wątku generatora pacjentów)
-        if _generator_started:
-            return
+    #with _generator_start_lock: # Blokada do synchronizacji dostępu do flagi _generator_started, aby uniknąć problemów z równoczesnym dostępem z różnych wątków (np. głównego wątku obsługującego żądania HTTP i wątku generatora pacjentów)
+    if _generator_started:
+        return
 
-        worker = threading.Thread(target=_patient_generation_worker, daemon=True) # Tworzymy wątek, który będzie uruchamiał funkcję _patient_generation_worker. Ustawiamy go jako daemon, aby zakończył się automatycznie po zamknięciu aplikacji.
-        worker.start()
-        _generator_started = True
+    worker = threading.Thread(target=_patient_generation_worker, daemon=True) # Tworzymy wątek, który będzie uruchamiał funkcję _patient_generation_worker. Ustawiamy go jako daemon, aby zakończył się automatycznie po zamknięciu aplikacji.
+    worker.start()
+    _generator_started = True
 
 # Funkcja pomocnicza do generowania unikalnego klucza dla operatora na podstawie nazwy użytkownika (jeśli jest dostępna) i unikalnego klucza sesji. Ten klucz jest używany do przechowywania stanu użytkownika w rejestrze pacjentów, aby mieć oddzielny stan dla każdego operatora (np. aktualnie obsługiwany pacjent, czas ostatniego przyjęcia pacjenta itp.).
 def _get_request_user_key() -> str:
