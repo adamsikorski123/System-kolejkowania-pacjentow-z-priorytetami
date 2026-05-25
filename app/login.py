@@ -3,10 +3,12 @@ import time # standardowa biblioteka do obsługi czasu
 
 auth_bp = Blueprint("auth", __name__)
 
+# Funkcja do inicjalizacji modułu autoryzacji, która ustawia domyślnego użytkownika i definiuje trasy logowania i wylogowania.
 def init_auth(app, patient_db):
     patient_db.ensure_default_user()
     app.config["AUTH_BOOT_ID"] = str(time.time_ns())
 
+    # Trasa do logowania, obsługująca zarówno GET (wyświetlenie formularza) jak i POST (przetworzenie danych logowania).
     @auth_bp.route("/login", methods=["GET", "POST"])
     def login():
         if request.method == "POST":
@@ -20,6 +22,7 @@ def init_auth(app, patient_db):
             return render_template("login.html", error="Nieprawidłowy login lub hasło.")
         return render_template("login.html", error=None)
 
+    # Trasa do wylogowania, która czyści sesję i usuwa ciasteczko sesyjne.
     @auth_bp.route("/logout", methods=["GET"])
     def logout():
         session.clear()
@@ -27,10 +30,12 @@ def init_auth(app, patient_db):
         response.delete_cookie(app.config.get("SESSION_COOKIE_NAME", "session"))
         return response
 
+    # Funkcja kontekstowa do wprowadzania aktualnego użytkownika do szablonów.
     @app.context_processor
     def inject_current_user():
         return {"current_user": session.get("user")}
 
+    # Funkcja, która jest wywoływana przed każdym żądaniem, aby wymusić logowanie dla wszystkich tras oprócz dozwolonych (logowanie i statyczne zasoby).
     @app.before_request
     def require_login():
         allowed = {"auth.login", "static"}

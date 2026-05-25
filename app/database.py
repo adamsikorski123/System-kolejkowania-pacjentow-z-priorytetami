@@ -24,7 +24,7 @@ class PatientDB:
 
         self.max_records = max(1, parsed_max)
         #!!! WSPÓŁBIEŻNOŚĆ Blokada do synchronizacji dostępu do bazy danych, aby uniknąć problemów z jednoczesnym dostępem z wielu wątków.
-        self._lock = threading.Lock() 
+        #self._lock = threading.Lock() 
 
         # Tworzymy połączenia z bazą danych pacjentów i użytkowników oraz kursory do wykonywania zapytań SQL. Ustawiamy check_same_thread=False, aby umożliwić dostęp do bazy danych z różnych wątków (co jest bezpieczne, ponieważ używamy blokady do synchronizacji dostępu).
         self.patients_conn = sqlite3.connect(self.patients_db_path, check_same_thread=False)
@@ -118,22 +118,22 @@ class PatientDB:
 
     # Funkcja do usuwania rekordu pacjenta z bazy danych na podstawie jego id. Przyjmuje argument patient_id, który jest identyfikatorem pacjenta do usunięcia. Blokujemy dostęp do bazy danych podczas tej operacji, aby uniknąć problemów z jednoczesnym dostępem z wielu wątków. Wykonujemy zapytanie SQL, które usuwa rekord z tabeli patients, który ma id równe patient_id. Na końcu zatwierdzamy zmiany w bazie danych.
     def delete_patient(self, patient_id: int):
-        with self._lock:
+        #with self._lock:
             self.patients_cur.execute("DELETE FROM patients WHERE id = ?", (patient_id,))
             self.patients_conn.commit()
     # Funkcja do usuwania wszystkich rekordów pacjentów z bazy danych. Blokujemy dostęp do bazy danych podczas tej operacji, aby uniknąć problemów z jednoczesnym dostępem z wielu wątków. Wykonujemy zapytanie SQL, które usuwa wszystkie rekordy z tabeli patients. Na końcu zatwierdzamy zmiany w bazie danych.
     def clear_all_patients(self):
-        with self._lock:
+        #with self._lock:
             self.patients_cur.execute("DELETE FROM patients")
             self.patients_conn.commit()
     # Funkcja do pobierania kolejnego dostępnego identyfikatora pacjenta. Blokujemy dostęp do bazy danych podczas tej operacji, aby uniknąć problemów z jednoczesnym dostępem z wielu wątków. Wykonujemy zapytanie SQL, które zwraca maksymalny id z tabeli patients i dodaje 1, aby uzyskać kolejny dostępny id. Jeśli tabela jest pusta, zwracamy 1 jako pierwszy id.
     def get_next_patient_id(self) -> int:
-        with self._lock:
+        # with self._lock:
             self.patients_cur.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM patients")
             return int(self.patients_cur.fetchone()[0])
     # Funkcja do pobierania wszystkich rekordów pacjentów z bazy danych. Blokujemy dostęp do bazy danych podczas tej operacji, aby uniknąć problemów z jednoczesnym dostępem z wielu wątków. Wykonujemy zapytanie SQL, które zwraca wszystkie kolumny z tabeli patients, posortowane według id. Następnie przekształcamy wyniki zapytania na listę słowników, gdzie każdy słownik reprezentuje jednego pacjenta z odpowied
     def get_all_patients(self):
-        with self._lock:
+        # with self._lock:
             self.patients_cur.execute("""
                 SELECT id, gender, full_name, arrival_time, priority_number, service_time_seconds
                 FROM patients
@@ -141,7 +141,7 @@ class PatientDB:
             """)
             rows = self.patients_cur.fetchall()
 
-        return [
+            return [
             {
                 "id": r[0],
                 "gender": r[1],
@@ -155,7 +155,7 @@ class PatientDB:
     # Funkcja do zapewnienia istnienia domyślnego użytkownika (operatora) w bazie danych. Przyjmuje opcjonalne argumenty username i password, które określają nazwę użytkownika i hasło dla domyślnego konta. Blokujemy dostęp do bazy danych podczas tej operacji, aby uniknąć problemów z jednoczesnym dostępem z wielu wątków. Sprawdzamy, czy użytkownik o podanej nazwie już istnieje w bazie danych. Jeśli nie istnieje, tworzymy nowe konto użytkownika z podaną nazwą i hasłem (hasło jest hashowane za pomocą funkcji generate_password_hash). Na końcu zatwierdzamy zmiany w bazie danych.
     def ensure_default_user(self, username="admin", password="admin123"):
         #!!! WSPÓŁBIEŻNOŚĆ
-        with self._lock: # Blokujemy dostęp do bazy danych podczas tej operacji, aby uniknąć problemów z jednoczesnym dostępem z wielu wątków.
+        #with self._lock: # Blokujemy dostęp do bazy danych podczas tej operacji, aby uniknąć problemów z jednoczesnym dostępem z wielu wątków.
             self.auth_cur.execute("SELECT username FROM users WHERE username = ?", (username,))
             if self.auth_cur.fetchone() is None:
                 self.auth_cur.execute(
@@ -166,12 +166,12 @@ class PatientDB:
 
     # Funkcja do weryfikacji danych logowania użytkownika. Przyjmuje argumenty username i password, które są nazwą użytkownika i hasłem do sprawdzenia. Blokujemy dostęp do bazy danych podczas tej operacji, aby uniknąć problemów z jednoczesnym dostępem z wielu wątków. Wykonujemy zapytanie SQL, które zwraca hash hasła dla użytkownika o podanej nazwie. Jeśli użytkownik nie istnieje, zwracamy False. Jeśli użytkownik istnieje, porównujemy podane hasło z hashem z bazy danych za pomocą funkcji check_password_hash i zwracamy wynik tego porównania (True lub False).
     def verify_user(self, username: str, password: str) -> bool:
-        with self._lock:
+        #with self._lock:
             self.auth_cur.execute("SELECT password_hash FROM users WHERE username = ?", (username,))
             row = self.auth_cur.fetchone()
-        if not row:
-            return False
-        return check_password_hash(row[0], password)
+            if not row:
+                return False
+            return check_password_hash(row[0], password)
 
     # Funkcja do dodawania nowego użytkownika (operatora) do bazy danych. Przyjmuje argumenty username i password, które są nazwą użytkownika i hasłem dla nowego konta. Blokujemy dostęp do bazy danych podczas tej operacji, aby uniknąć problemów z jednoczesnym dostępem z wielu wątków. Sprawdzamy, czy nazwa użytkownika jest niepusta i czy hasło jest podane. Jeśli dane są nieprawidłowe, zwracamy False. Następnie sprawdzamy, czy użytkownik o podanej nazwie już istnieje w bazie danych. Jeśli istnieje, zwracamy False. Jeśli użytkownik nie istnieje, tworzymy nowe konto użytkownika z podaną nazwą i hasłem (hasło jest hashowane za pomocą funkcji generate_password_hash). Na końcu zatwierdzamy zmiany w bazie danych i zwracamy True, aby wskazać, że konto zostało pomyślnie dodane.
     def add_user(self, username: str, password: str) -> bool:
@@ -179,16 +179,16 @@ class PatientDB:
         if not username or not password:
             return False
 
-        with self._lock:
-            self.auth_cur.execute("SELECT username FROM users WHERE username = ?", (username,))
-            if self.auth_cur.fetchone() is not None:
-                return False
-            self.auth_cur.execute(
-                "INSERT INTO users (username, password_hash) VALUES (?, ?)",
-                (username, generate_password_hash(password)),
-            )
-            self.auth_conn.commit()
-            return True
+        #with self._lock:
+        self.auth_cur.execute("SELECT username FROM users WHERE username = ?", (username,))
+        if self.auth_cur.fetchone() is not None:
+            return False
+        self.auth_cur.execute(
+            "INSERT INTO users (username, password_hash) VALUES (?, ?)",
+            (username, generate_password_hash(password)),
+        )
+        self.auth_conn.commit()
+        return True
 
     # Funkcja do usuwania użytkownika (operatora) z bazy danych na podstawie jego nazwy użytkownika. Przyjmuje argument username, który jest nazwą użytkownika do usunięcia. Blokujemy dostęp do bazy danych podczas tej operacji, aby uniknąć problemów z jednoczesnym dostępem z wielu wątków. Sprawdzamy, czy nazwa użytkownika jest niepusta. Jeśli jest pusta, zwracamy False. Następnie wykonujemy zapytanie SQL, które usuwa rekord z tabeli users, który ma username równe podanej nazwie. Sprawdzamy, czy został usunięty jakiś rekord (rowcount > 0) i zatwierdzamy zmiany w bazie danych. Zwracamy True, jeśli konto zostało pomyślnie usunięte, lub False, jeśli nie znaleziono konta do usunięcia.
     def delete_user(self, username: str) -> bool:
@@ -196,15 +196,15 @@ class PatientDB:
         if not username:
             return False
 
-        with self._lock:
-            self.auth_cur.execute("DELETE FROM users WHERE username = ?", (username,))
-            deleted = self.auth_cur.rowcount > 0
-            self.auth_conn.commit()
-            return deleted
+        #with self._lock:
+        self.auth_cur.execute("DELETE FROM users WHERE username = ?", (username,))
+        deleted = self.auth_cur.rowcount > 0
+        self.auth_conn.commit()
+        return deleted
 
     # Funkcja do pobierania listy wszystkich użytkowników (operatorów) z bazy danych. Blokujemy dostęp do bazy danych podczas tej operacji, aby uniknąć problemów z jednoczesnym dostępem z wielu wątków. Wykonujemy zapytanie SQL, które zwraca nazwy wszystkich użytkowników posortowane alfabetycznie. Zwracamy listę nazw użytkowników.
     def list_users(self):
-        with self._lock:
-            self.auth_cur.execute("SELECT username FROM users ORDER BY username")
-            rows = self.auth_cur.fetchall()
+        #with self._lock:
+        self.auth_cur.execute("SELECT username FROM users ORDER BY username")
+        rows = self.auth_cur.fetchall()
         return [r[0] for r in rows]

@@ -27,14 +27,17 @@ PRIORITY_CONFIG = {
     },
 }
 
+# Funkcje pomocnicze do pobierania informacji o priorytecie, takie jak czas obsługi, nazwa i kolor.
 def get_service_time_for_priority(priority: int) -> int:
     """Zwraca czas obsługi w sekundach dla danego priorytetu"""
     return PRIORITY_CONFIG.get(priority, {}).get("service_time_seconds", 5)
 
+# Funkcje pomocnicze do pobierania nazwy i koloru priorytetu.
 def get_priority_name(priority: int) -> str:
     """Zwraca nazwę koloru priorytetu"""
     return PRIORITY_CONFIG.get(priority, {}).get("name", "nieznany")
 
+# Funkcje pomocnicze do pobierania nazwy i koloru priorytetu.
 def get_priority_color(priority: int) -> str:
     """Zwraca kod koloru dla danego priorytetu"""
     return PRIORITY_CONFIG.get(priority, {}).get("color", "#cccccc")
