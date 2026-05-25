@@ -29,7 +29,7 @@ class PatientRegistry:
     def __init__(self):
         self._patients = []
         self._user_states = {}
-        #self._lock = threading.Lock() # Używamy blokady do synchronizacji dostępu do listy pacjentów i stanu użytkowników, aby uniknąć problemów z równoczesnym dostępem z różnych wątków (np. głównego wątku obsługującego żądania HTTP i wątku generatora pacjentów)
+        self._lock = threading.Lock() # Używamy blokady do synchronizacji dostępu do listy pacjentów i stanu użytkowników, aby uniknąć problemów z równoczesnym dostępem z różnych wątków (np. głównego wątku obsługującego żądania HTTP i wątku generatora pacjentów)
 
     # Metoda do dodawania pacjenta do kolejki. Przyjmuje dane pacjenta i tworzy rekord, który jest dodawany do listy oczekujących pacjentów.
     def add_patient(self, first_name: str, last_name: str, admission_number: int, priority_number: int, arrival_time: float, gender: str) -> bool:
@@ -162,7 +162,7 @@ def _restore_registry_from_db():
 _restore_registry_from_db()
 
 _generator_started = False # Flaga informująca, czy generator pacjentów został już uruchomiony, aby uniknąć wielokrotnego uruchamiania generatora w przypadku wielu żądań do głównej strony aplikacji.
-#_generator_start_lock = threading.Lock() # Blokada do synchronizacji dostępu do flagi _generator_started, aby uniknąć problemów z równoczesnym dostępem z różnych wątków (np. głównego wątku obsługującego żądania HTTP i wątku generatora pacjentów)
+_generator_start_lock = threading.Lock() # Blokada do synchronizacji dostępu do flagi _generator_started, aby uniknąć problemów z równoczesnym dostępem z różnych wątków (np. głównego wątku obsługującego żądania HTTP i wątku generatora pacjentów)
 
 _generation_paused = False
 _generation_pause_lock = threading.Lock()

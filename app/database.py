@@ -24,7 +24,7 @@ class PatientDB:
 
         self.max_records = max(1, parsed_max)
         #!!! WSPÓŁBIEŻNOŚĆ Blokada do synchronizacji dostępu do bazy danych, aby uniknąć problemów z jednoczesnym dostępem z wielu wątków.
-        #self._lock = threading.Lock() 
+        self._lock = threading.Lock() 
 
         # Tworzymy połączenia z bazą danych pacjentów i użytkowników oraz kursory do wykonywania zapytań SQL. Ustawiamy check_same_thread=False, aby umożliwić dostęp do bazy danych z różnych wątków (co jest bezpieczne, ponieważ używamy blokady do synchronizacji dostępu).
         self.patients_conn = sqlite3.connect(self.patients_db_path, check_same_thread=False)

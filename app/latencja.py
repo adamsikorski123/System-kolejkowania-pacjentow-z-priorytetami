@@ -6,7 +6,7 @@ class LatencyJitterMeter:
     def __init__(self, max_samples: int = 300):
         self._api_latency_ms = deque(maxlen=max_samples)
         self._queue_wait_s = deque(maxlen=max_samples)
-        #self._lock = threading.Lock() # blokada do synchronizacji dostępu do kolejek, aby zapewnić bezpieczeństwo wątkowe podczas dodawania nowych wartości i tworzenia migawki danych.
+        self._lock = threading.Lock() # blokada do synchronizacji dostępu do kolejek, aby zapewnić bezpieczeństwo wątkowe podczas dodawania nowych wartości i tworzenia migawki danych.
 
     # Metoda pomocnicza do obliczania średniej z listy wartości.
     @staticmethod
