@@ -17,6 +17,7 @@
 	const queueWaitJitterEl = document.getElementById("metric-queue-wait-jitter");
 	const apiLatencyLastEl = document.getElementById("metric-api-latency-last");
 	const queueWaitLastEl = document.getElementById("metric-queue-wait-last");
+	const toggleGenerationBtn = document.getElementById("toggleGenerationBtn");
 
 	// Inicjalizacja czasu oczekiwania i całkowitego czasu obsługi z atrybutów danych
 	let waitTime = Number(body?.dataset?.waitTime ?? "0") || 0;
@@ -268,6 +269,7 @@
 		renderCurrent(state.current || null);
 		renderQueue(state);
 		renderLatencyMetrics(state);
+		updateGenerationBtn(state.generation_paused ?? false);
 
 		waitTime = Number(state.wait_time ?? 0) || 0;
 		totalTime = Number(state.current_service_seconds ?? 0) || 0;
@@ -324,6 +326,29 @@
 		window.location.reload();
 	}
 
+	function updateGenerationBtn(paused) {
+		if (!toggleGenerationBtn) return;
+		if (paused) {
+			toggleGenerationBtn.textContent = "WZNÓW GENEROWANIE";
+			toggleGenerationBtn.style.background = "#28a745";
+		} else {
+			toggleGenerationBtn.textContent = "WSTRZYMAJ GENEROWANIE";
+			toggleGenerationBtn.style.background = "#e67e00";
+		}
+	}
+
+	async function toggleGeneration() {
+		try {
+			const response = await fetch("/api/queue/generation/toggle", { method: "POST" });
+			if (response.ok) {
+				const data = await response.json();
+				updateGenerationBtn(data.generation_paused);
+			}
+		} catch (error) {
+			console.error("Błąd przy przełączaniu generowania:", error);
+		}
+	}
+
 	startCooldown();
 	setupAdmitForm();
 
@@ -335,6 +360,10 @@
 			resetBtn.style.right = "16px";
 			resetBtn.style.zIndex = "1000";
 			resetBtn.addEventListener("click", resetQueue);
+		}
+
+		if (toggleGenerationBtn) {
+			toggleGenerationBtn.addEventListener("click", toggleGeneration);
 		}
 	});
 

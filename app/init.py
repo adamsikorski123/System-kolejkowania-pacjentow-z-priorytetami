@@ -164,6 +164,9 @@ _restore_registry_from_db()
 _generator_started = False # Flaga informująca, czy generator pacjentów został już uruchomiony, aby uniknąć wielokrotnego uruchamiania generatora w przypadku wielu żądań do głównej strony aplikacji.
 #_generator_start_lock = threading.Lock() # Blokada do synchronizacji dostępu do flagi _generator_started, aby uniknąć problemów z równoczesnym dostępem z różnych wątków (np. głównego wątku obsługującego żądania HTTP i wątku generatora pacjentów)
 
+_generation_paused = False
+_generation_pause_lock = threading.Lock()
+
 # Funkcja uruchamiająca w tle generator pacjentów. Generuje pacjentów w nieskończoność, dodając ich do rejestru pacjentów z odpowiednimi opóźnieniami między kolejnymi generacjami.
 def _patient_generation_worker():
     lam_arrival = 15.0
@@ -171,6 +174,13 @@ def _patient_generation_worker():
     min_service_seconds = 2
 
     while True:
+        with _generation_pause_lock:
+            paused = _generation_paused
+
+        if paused:
+            time.sleep(1)
+            continue
+
         suggested_id = patient_db.get_next_patient_id()
         wait_seconds, patient_record = generate_next_patient_record(
             patient_id=suggested_id,
@@ -180,6 +190,12 @@ def _patient_generation_worker():
         )
 
         time.sleep(wait_seconds)
+
+        with _generation_pause_lock:
+            paused = _generation_paused
+
+        if paused:
+            continue
 
         # ID ustalane przy zapisie -> po resecie zaczyna znowu od 1
         next_id = patient_db.get_next_patient_id()
@@ -251,6 +267,8 @@ def _build_queue_state(user_key: str):
     current_id = current.get("id", 0) if isinstance(current, dict) else 0
 
     metrics = latency_meter.snapshot()
+    with _generation_pause_lock:
+        paused = _generation_paused
     return {
         "count": len(patients),
         "last_id": last_id,
@@ -267,6 +285,7 @@ def _build_queue_state(user_key: str):
         "queue_wait_last_s": metrics["queue_wait_last_s"],
         "queue_wait_avg_s": metrics["queue_wait_avg_s"],
         "queue_wait_jitter_s": metrics["queue_wait_jitter_s"],
+        "generation_paused": paused,
     }
 
 # Funkcja pomocnicza do normalizacji danych pacjenta, która zapewnia, że dane pacjenta mają spójny format, np. konwertuje priorytet na liczbę całkowitą i zapewnia, że jest w odpowiednim zakresie (1-5). Ta funkcja jest używana przed zwróceniem danych pacjenta w API, aby mieć pewność, że dane są spójne i łatwe do obsługi po stronie klienta.
@@ -381,7 +400,16 @@ def change_priority():
     state["success"] = success
     return jsonify(state)
 
+# Endpoint API przełączający stan generowania pacjentów (wstrzymaj/wznów).
+@app.route('/api/queue/generation/toggle', methods=['POST'])
+def toggle_generation():
+    global _generation_paused
+    with _generation_pause_lock:
+        _generation_paused = not _generation_paused
+        paused = _generation_paused
+    return jsonify({"generation_paused": paused})
+
 # Endpoint API zwracający metryki związane z opóźnieniami API i czasem oczekiwania w kolejce, takie jak ostatnie, średnie i jitter dla obu tych metryk.
 @app.route('/api/metrics/latency', methods=['GET'])
-def latency_metrics(): 
+def latency_metrics():
     return jsonify(latency_meter.snapshot())
