@@ -88,7 +88,10 @@ class PatientRegistry:
             return False
 
         if self._patients:
-            state["current_patient"] = self._patients.pop(0)
+            patient = self._patients[0]   # odczyt bez usuwania — obaj wątki widzą tego samego pacjenta
+            time.sleep(0.5)               # celowe opóźnienie do demonstracji race condition
+            self._patients.remove(patient)
+            state["current_patient"] = patient
             current_service = state["current_patient"].get("service_time_seconds")
             state["current_service_seconds"] = int(current_service) if isinstance(current_service, (int, float)) else 5
             state["last_admit_time"] = current_time
