@@ -18,6 +18,7 @@
 	const apiLatencyLastEl = document.getElementById("metric-api-latency-last");
 	const queueWaitLastEl = document.getElementById("metric-queue-wait-last");
 	const toggleGenerationBtn = document.getElementById("toggleGenerationBtn");
+	const toggleProtectionBtn = document.getElementById("toggleProtectionBtn");
 	let raceConditionCountEl = document.getElementById("metric-race-condition-count");
 
 	// Inicjalizacja czasu oczekiwania i całkowitego czasu obsługi z atrybutów danych
@@ -348,6 +349,7 @@
 		renderQueue(state);
 		renderLatencyMetrics(state);
 		updateGenerationBtn(state.generation_paused ?? false);
+		updateProtectionBtn(state.race_protection_enabled ?? false);
 
 		waitTime = Number(state.wait_time ?? 0) || 0;
 		totalTime = Number(state.current_service_seconds ?? 0) || 0;
@@ -435,6 +437,29 @@
 		}
 	}
 
+	function updateProtectionBtn(enabled) {
+		if (!toggleProtectionBtn) return;
+		if (enabled) {
+			toggleProtectionBtn.textContent = "WYŁĄCZ ZABEZPIECZENIA PRZED RACE CONDITION";
+			toggleProtectionBtn.style.background = "#28a745";
+		} else {
+			toggleProtectionBtn.textContent = "WŁĄCZ ZABEZPIECZENIA PRZED RACE CONDITION";
+			toggleProtectionBtn.style.background = "#dc3545";
+		}
+	}
+
+	async function toggleProtection() {
+		try {
+			const response = await fetch("/api/queue/protection/toggle", { method: "POST" });
+			if (response.ok) {
+				const data = await response.json();
+				updateProtectionBtn(data.race_protection_enabled);
+			}
+		} catch (error) {
+			console.error("Błąd przy przełączaniu ochrony:", error);
+		}
+	}
+
 	startCooldown();
 	setupAdmitForm();
 	setupMetricsPanelPosition();
@@ -453,6 +478,10 @@
 
 		if (toggleGenerationBtn) {
 			toggleGenerationBtn.addEventListener("click", toggleGeneration);
+		}
+
+		if (toggleProtectionBtn) {
+			toggleProtectionBtn.addEventListener("click", toggleProtection);
 		}
 
 		setupMetricsPanelPosition();

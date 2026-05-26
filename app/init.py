@@ -81,25 +81,43 @@ class PatientRegistry:
     # Metoda przenosząca pierwszego pacjenta z kolejki do pola 'current_patient'. Sprawdza, czy minął odpowiedni czas od ostatniego przyjęcia pacjenta (na podstawie czasu obsługi aktualnego pacjenta) i jeśli tak, to przenosi pierwszego pacjenta z listy oczekujących do pola 'current_patient' oraz aktualizuje czas ostatniego przyjęcia.
     def admit_patient(self, user_key: str):
         current_time = time.time()
-        #with self._lock:
-        state = self._get_or_create_user_state(user_key)
-        cooldown_seconds = max(0, int(state["current_service_seconds"] or 0))
-        if current_time - float(state["last_admit_time"] or 0) < cooldown_seconds:
-            return False
 
-        if self._patients:
-            patient = self._patients[0]   # odczyt bez usuwania — obaj wątki widzą tego samego pacjenta
-            time.sleep(0.5)               # celowe opóźnienie do demonstracji race condition
-            try:
-                self._patients.remove(patient)
-            except ValueError:
-                return "conflict"         # pacjent już przyjęty przez innego operatora
-            state["current_patient"] = patient
-            current_service = state["current_patient"].get("service_time_seconds")
-            state["current_service_seconds"] = int(current_service) if isinstance(current_service, (int, float)) else 5
-            state["last_admit_time"] = current_time
-            return True
-        return False
+        with _race_protection_lock:
+            protection = _race_protection_enabled
+
+        if protection:
+            with self._lock:
+                state = self._get_or_create_user_state(user_key)
+                cooldown_seconds = max(0, int(state["current_service_seconds"] or 0))
+                if current_time - float(state["last_admit_time"] or 0) < cooldown_seconds:
+                    return False
+                if self._patients:
+                    patient = self._patients.pop(0)
+                    state["current_patient"] = patient
+                    current_service = patient.get("service_time_seconds")
+                    state["current_service_seconds"] = int(current_service) if isinstance(current_service, (int, float)) else 5
+                    state["last_admit_time"] = current_time
+                    return True
+                return False
+        else:
+            #with self._lock:
+            state = self._get_or_create_user_state(user_key)
+            cooldown_seconds = max(0, int(state["current_service_seconds"] or 0))
+            if current_time - float(state["last_admit_time"] or 0) < cooldown_seconds:
+                return False
+            if self._patients:
+                patient = self._patients[0]   # odczyt bez usuwania — obaj wątki widzą tego samego pacjenta
+                time.sleep(0.5)               # celowe opóźnienie do demonstracji race condition
+                try:
+                    self._patients.remove(patient)
+                except ValueError:
+                    return "conflict"         # pacjent już przyjęty przez innego operatora
+                state["current_patient"] = patient
+                current_service = patient.get("service_time_seconds")
+                state["current_service_seconds"] = int(current_service) if isinstance(current_service, (int, float)) else 5
+                state["last_admit_time"] = current_time
+                return True
+            return False
         
     # Metoda zwracająca aktualnie obsługiwanego pacjenta.
     def get_current_patient(self, user_key: str):
@@ -124,29 +142,47 @@ class PatientRegistry:
         if not 1 <= new_priority <= 5:
             return False
 
+        with _race_protection_lock:
+            protection = _race_protection_enabled
+
+        if protection:
+            with self._lock:
+                patient = None
+                for p in self._patients:
+                    if p.get("id") == patient_id:
+                        patient = p
+                        break
+                if patient:
+                    patient["priority"] = new_priority
+                    patient["_last_writer"] = user_key
+                    patient["service_time_seconds"] = get_service_time_for_priority(new_priority)
+                    self._sort_patients()
+                    return True
+            return False
+        else:
                 #with self._lock:
-        patient = None
-        for p in self._patients:
-            if p.get("id") == patient_id:
-                patient = p
-                break
+            patient = None
+            for p in self._patients:
+                if p.get("id") == patient_id:
+                    patient = p
+                    break
 
-        if patient:
-            old_priority = patient["priority"]
-            time.sleep(0.5)  # celowe opóźnienie do demonstracji race condition
-            changed_by_other = (
-                patient["priority"] != old_priority and
-                patient.get("_last_writer") != user_key
-            )
-            if changed_by_other:
-                return "conflict"
-            patient["priority"] = new_priority
-            patient["_last_writer"] = user_key
-            patient["service_time_seconds"] = get_service_time_for_priority(new_priority)
-            self._sort_patients()
-            return True
+            if patient:
+                old_priority = patient["priority"]
+                time.sleep(0.5)  # celowe opóźnienie do demonstracji race condition
+                changed_by_other = (
+                    patient["priority"] != old_priority and
+                    patient.get("_last_writer") != user_key
+                )
+                if changed_by_other:
+                    return "conflict"
+                patient["priority"] = new_priority
+                patient["_last_writer"] = user_key
+                patient["service_time_seconds"] = get_service_time_for_priority(new_priority)
+                self._sort_patients()
+                return True
 
-        return False
+            return False
 
     # Metoda do obliczania czasu oczekiwania na przyjęcie kolejnego pacjenta. Oblicza czas, który pozostał do momentu, gdy będzie można przyjąć kolejnego pacjenta, na podstawie czasu ostatniego przyjęcia i czasu obsługi aktualnego pacjenta.
     def get_wait_time(self, user_key: str) -> float:
@@ -181,6 +217,9 @@ _generator_start_lock = threading.Lock() # Blokada do synchronizacji dostępu do
 
 _generation_paused = False
 _generation_pause_lock = threading.Lock()
+
+_race_protection_enabled = False
+_race_protection_lock = threading.Lock()
 
 # Funkcja uruchamiająca w tle generator pacjentów. Generuje pacjentów w nieskończoność, dodając ich do rejestru pacjentów z odpowiednimi opóźnieniami między kolejnymi generacjami.
 def _patient_generation_worker():
@@ -284,6 +323,8 @@ def _build_queue_state(user_key: str):
     metrics = latency_meter.snapshot()
     with _generation_pause_lock:
         paused = _generation_paused
+    with _race_protection_lock:
+        protection = _race_protection_enabled
     return {
         "count": len(patients),
         "last_id": last_id,
@@ -302,6 +343,7 @@ def _build_queue_state(user_key: str):
         "queue_wait_jitter_s": metrics["queue_wait_jitter_s"],
         "race_condition_count": metrics["race_condition_count"],
         "generation_paused": paused,
+        "race_protection_enabled": protection,
     }
 
 # Funkcja pomocnicza do normalizacji danych pacjenta, która zapewnia, że dane pacjenta mają spójny format, np. konwertuje priorytet na liczbę całkowitą i zapewnia, że jest w odpowiednim zakresie (1-5). Ta funkcja jest używana przed zwróceniem danych pacjenta w API, aby mieć pewność, że dane są spójne i łatwe do obsługi po stronie klienta.
@@ -442,6 +484,15 @@ def toggle_generation():
         _generation_paused = not _generation_paused
         paused = _generation_paused
     return jsonify({"generation_paused": paused})
+
+# Endpoint API przełączający ochronę przed race condition (włącz/wyłącz).
+@app.route('/api/queue/protection/toggle', methods=['POST'])
+def toggle_protection():
+    global _race_protection_enabled
+    with _race_protection_lock:
+        _race_protection_enabled = not _race_protection_enabled
+        enabled = _race_protection_enabled
+    return jsonify({"race_protection_enabled": enabled})
 
 # Endpoint API zwracający metryki związane z opóźnieniami API i czasem oczekiwania w kolejce, takie jak ostatnie, średnie i jitter dla obu tych metryk.
 @app.route('/api/metrics/latency', methods=['GET'])
