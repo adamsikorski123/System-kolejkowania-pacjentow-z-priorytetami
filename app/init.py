@@ -90,7 +90,10 @@ class PatientRegistry:
         if self._patients:
             patient = self._patients[0]   # odczyt bez usuwania — obaj wątki widzą tego samego pacjenta
             time.sleep(0.5)               # celowe opóźnienie do demonstracji race condition
-            self._patients.remove(patient)
+            try:
+                self._patients.remove(patient)
+            except ValueError:
+                return "conflict"         # pacjent już przyjęty przez innego operatora
             state["current_patient"] = patient
             current_service = state["current_patient"].get("service_time_seconds")
             state["current_service_seconds"] = int(current_service) if isinstance(current_service, (int, float)) else 5
@@ -341,6 +344,9 @@ def queue_admit():
     user_key = _get_request_user_key() # Pobieramy unikalny klucz użytkownika na podstawie sesji, aby mieć oddzielny stan dla każdego operatora (np. aktualnie obsługiwany pacjent, czas ostatniego przyjęcia pacjenta itp.)
     t0 = time.perf_counter()
     admitted = patient_registry.admit_patient(user_key)
+
+    if admitted == "conflict":
+        return jsonify({"success": False, "conflict": True}), 409
 
     if admitted:
         current = patient_registry.get_current_patient(user_key)
