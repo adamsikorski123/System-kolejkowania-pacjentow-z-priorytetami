@@ -117,7 +117,7 @@ class PatientRegistry:
 
     #!!!! WSPÓŁBIEŻNOŚĆ
     # Metoda do zmiany priorytetu pacjenta w kolejce i przesunięcia go na odpowiednią pozycję
-    def change_patient_priority(self, patient_id: int, new_priority: int) -> bool:
+    def change_patient_priority(self, patient_id: int, new_priority: int, user_key: str = "") -> bool:
         if not 1 <= new_priority <= 5:
             return False
 
@@ -131,9 +131,14 @@ class PatientRegistry:
         if patient:
             old_priority = patient["priority"]
             time.sleep(0.5)  # celowe opóźnienie do demonstracji race condition
-            if patient["priority"] != old_priority:
+            changed_by_other = (
+                patient["priority"] != old_priority and
+                patient.get("_last_writer") != user_key
+            )
+            if changed_by_other:
                 return "conflict"
             patient["priority"] = new_priority
+            patient["_last_writer"] = user_key
             patient["service_time_seconds"] = get_service_time_for_priority(new_priority)
             self._sort_patients()
             return True
@@ -392,7 +397,7 @@ def change_priority():
     except (ValueError, TypeError):
         return jsonify({"success": False, "error": "Invalid patient_id or priority"}), 400
 
-    result = patient_registry.change_patient_priority(patient_id, new_priority)
+    result = patient_registry.change_patient_priority(patient_id, new_priority, _get_request_user_key())
 
     if result == "conflict":
         return jsonify({"success": False, "conflict": True}), 409
