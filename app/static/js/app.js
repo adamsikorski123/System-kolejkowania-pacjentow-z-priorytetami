@@ -26,6 +26,8 @@
 	let totalTime = Number(body?.dataset?.currentServiceSeconds ?? "0") || 0;
 	let cooldownInterval = null;
 	let raceConditionCount = 0;
+	let apiActionLatencySamples = [];
+	const API_ACTION_LAT_MAX_SAMPLES = 300;
 
 	function getMetricsTableElement() {
 		const anchor = apiLatencyAvgEl || apiLatencyJitterEl || queueWaitAvgEl || queueWaitJitterEl || apiLatencyLastEl || queueWaitLastEl;
@@ -281,6 +283,7 @@
 	}
 
 	async function sendPriorityUpdate(patientId, priority) {
+		const t0 = performance.now();
 		try {
 			const response = await fetch("/api/queue/change-priority", {
 				method: "POST",
@@ -307,11 +310,14 @@
 		} catch (error) {
 			console.error("Błąd:", error);
 			alert("Nie udało się zmienić priorytetu.");
+		} finally {
+			recordApiActionLatency(performance.now() - t0);
 		}
 	}
 
 	// Obsługa zmiany priorytetu pacjenta
 	async function handlePriorityChange(event) {
+		const t0 = performance.now();
 		const select = event.target;
 		const patientId = select.getAttribute("data-patient-id");
 		const newPriority = select.value;
@@ -342,15 +348,60 @@
 		} catch (error) {
 			console.error("Błąd:", error);
 			alert("Nie udało się zmienić priorytetu.");
+		} finally {
+			recordApiActionLatency(performance.now() - t0);
 		}
 	}
 
+	function avg(values) {
+		return values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
+	}
+
+	function jitter(values) {
+		if (values.length < 2) return 0;
+		let sum = 0;
+		for (let i = 1; i < values.length; i += 1) sum += Math.abs(values[i] - values[i - 1]);
+		return sum / (values.length - 1);
+	}
+
+	function setMetricLabel(metricEl, label) {
+		const row = metricEl?.closest("tr");
+		const labelCell = row?.querySelector("td");
+		if (labelCell) labelCell.textContent = label;
+	}
+
+	function updateMetricDescriptions() {
+		setMetricLabel(apiLatencyAvgEl, "API latencja avg (admit + zmiana priorytetu, round-trip)");
+		setMetricLabel(apiLatencyJitterEl, "API jitter (admit + zmiana priorytetu, round-trip)");
+		setMetricLabel(apiLatencyLastEl, "API latencja last (admit + zmiana priorytetu, round-trip)");
+	}
+
+	function recordApiActionLatency(ms) {
+		const val = Math.max(0, Number(ms) || 0);
+		apiActionLatencySamples.push(val);
+		if (apiActionLatencySamples.length > API_ACTION_LAT_MAX_SAMPLES) {
+			apiActionLatencySamples = apiActionLatencySamples.slice(-API_ACTION_LAT_MAX_SAMPLES);
+		}
+	}
+
+	function renderApiActionLatencyFromSamples() {
+		if (!apiActionLatencySamples.length) return false;
+		if (apiLatencyAvgEl) apiLatencyAvgEl.textContent = `${avg(apiActionLatencySamples).toFixed(2)} ms`;
+		if (apiLatencyJitterEl) apiLatencyJitterEl.textContent = `${jitter(apiActionLatencySamples).toFixed(2)} ms`;
+		if (apiLatencyLastEl) apiLatencyLastEl.textContent = `${apiActionLatencySamples[apiActionLatencySamples.length - 1].toFixed(2)} ms`;
+		return true;
+	}
+
 	function renderLatencyMetrics(state) {
-		if (apiLatencyAvgEl) apiLatencyAvgEl.textContent = `${Number(state.api_latency_avg_ms ?? 0).toFixed(2)} ms`;
-		if (apiLatencyJitterEl) apiLatencyJitterEl.textContent = `${Number(state.api_latency_jitter_ms ?? 0).toFixed(2)} ms`;
+		const hasClientSamples = renderApiActionLatencyFromSamples();
+		if (!hasClientSamples) {
+			if (apiLatencyAvgEl) apiLatencyAvgEl.textContent = `${Number(state.api_latency_avg_ms ?? 0).toFixed(2)} ms`;
+			if (apiLatencyJitterEl) apiLatencyJitterEl.textContent = `${Number(state.api_latency_jitter_ms ?? 0).toFixed(2)} ms`;
+			if (apiLatencyLastEl) apiLatencyLastEl.textContent = `${Number(state.api_latency_last_ms ?? 0).toFixed(2)} ms`;
+		}
+
 		if (queueWaitAvgEl) queueWaitAvgEl.textContent = `${Number(state.queue_wait_avg_s ?? 0).toFixed(2)} s`;
 		if (queueWaitJitterEl) queueWaitJitterEl.textContent = `${Number(state.queue_wait_jitter_s ?? 0).toFixed(2)} s`;
-		if (apiLatencyLastEl) apiLatencyLastEl.textContent = `${Number(state.api_latency_last_ms ?? 0).toFixed(2)} ms`;
 		if (queueWaitLastEl) queueWaitLastEl.textContent = `${Number(state.queue_wait_last_s ?? 0).toFixed(2)} s`;
 
 		if (state && state.race_condition_count !== undefined && state.race_condition_count !== null) {
@@ -359,6 +410,7 @@
 			renderRaceConditionCount(raceConditionCount);
 		}
 		setupMetricsPanelPosition();
+		updateMetricDescriptions();
 	}
 
 	// Funkcja do zastosowania stanu kolejki i aktualizacji interfejsu
@@ -376,14 +428,13 @@
 
 	// Funkcja do obsługi przyjęcia następnego pacjenta
 	function setupAdmitForm() {
-		if (!admitForm || !btn) {
-			return;
-		}
+		if (!admitForm || !btn) return;
 
 		admitForm.addEventListener("submit", async (event) => {
 			event.preventDefault();
 			btn.disabled = true;
 			btn.innerHTML = "Przetwarzanie...";
+			const t0 = performance.now();
 
 			try {
 				const response = await fetch("/api/queue/admit", {
@@ -405,6 +456,7 @@
 			} catch (error) {
 				console.error("Błąd przy przyjmowaniu pacjenta:", error);
 			} finally {
+				recordApiActionLatency(performance.now() - t0);
 				btn.innerHTML = "PRZYJMIJ NASTĘPNEGO";
 			}
 		});
@@ -483,6 +535,7 @@
 	setupMetricsPanelPosition();
 	ensureRaceConditionMetricElement();
 	renderRaceConditionCount(raceConditionCount);
+	updateMetricDescriptions();
 
 	document.addEventListener("DOMContentLoaded", () => {
 		const resetBtn = document.getElementById("resetQueueBtn");
@@ -507,6 +560,7 @@
 		}
 
 		setupMetricsPanelPosition();
+		updateMetricDescriptions();
 	});
 
 	refreshQueueState();

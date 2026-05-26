@@ -440,28 +440,35 @@ def queue_reset():
 # Endpoint API do zmiany priorytetu pacjenta w kolejce
 @app.route('/api/queue/change-priority', methods=['POST'])
 def change_priority():
+    t0 = time.perf_counter()
+
+    def _respond(payload, status=200):
+        api_latency_ms = (time.perf_counter() - t0) * 1000.0
+        latency_meter.record_api_latency_ms(api_latency_ms)
+        return jsonify(payload), status
+
     data = request.get_json()
     patient_id = data.get("patient_id")
     new_priority = data.get("priority")
 
     if patient_id is None or new_priority is None:
-        return jsonify({"success": False, "error": "Missing patient_id or priority"}), 400
+        return _respond({"success": False, "error": "Missing patient_id or priority"}, 400)
 
     try:
         patient_id = int(patient_id)
         new_priority = int(new_priority)
     except (ValueError, TypeError):
-        return jsonify({"success": False, "error": "Invalid patient_id or priority"}), 400
+        return _respond({"success": False, "error": "Invalid patient_id or priority"}, 400)
 
     result = patient_registry.change_patient_priority(patient_id, new_priority, _get_request_user_key())
 
     if result == "conflict":
         latency_meter.record_race_condition()
-        return jsonify({
+        return _respond({
             "success": False,
             "conflict": True,
             "race_condition_count": latency_meter.snapshot()["race_condition_count"],
-        }), 409
+        }, 409)
 
     if result:
         updated = next((p for p in patient_registry.all_patients() if p.get("id") == patient_id), None)
@@ -474,7 +481,7 @@ def change_priority():
 
     state = _build_queue_state(_get_request_user_key())
     state["success"] = bool(result)
-    return jsonify(state)
+    return _respond(state)
 
 # Endpoint API przełączający stan generowania pacjentów (wstrzymaj/wznów).
 @app.route('/api/queue/generation/toggle', methods=['POST'])
