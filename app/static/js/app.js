@@ -32,19 +32,37 @@
 		return anchor.closest("table") || null;
 	}
 
-	function setupMetricsPanelPosition() {
+	function getMetricsPanelElement() {
 		const table = getMetricsTableElement();
-		if (!table) return;
+		if (!table) return null;
 
-		table.classList.add("metrics-floating");
+		let node = table;
+		while (node && node !== document.body) {
+			if (node.querySelector?.("#metric-api-latency-avg") || node.querySelector?.("#metric-queue-wait-avg")) {
+				node = node.parentElement;
+				break;
+			}
+			node = node.parentElement;
+		}
 
-		// dodatkowe wymuszenie, gdyby layout nadpisywał klasę
-		table.style.setProperty("position", "fixed", "important");
-		table.style.setProperty("left", "16px", "important");
-		table.style.setProperty("bottom", "16px", "important");
-		table.style.setProperty("right", "auto", "important");
-		table.style.setProperty("top", "auto", "important");
-		table.style.setProperty("z-index", "9999", "important");
+		return (node && node !== document.body) ? node : table;
+	}
+
+	function setupMetricsPanelPosition() {
+		const panel = getMetricsPanelElement();
+		if (!panel) return;
+
+		let host = document.getElementById("metrics-floating-host");
+		if (!host) {
+			host = document.createElement("div");
+			host.id = "metrics-floating-host";
+			host.className = "metrics-floating";
+			document.body.appendChild(host);
+		}
+
+		if (panel.parentElement !== host) {
+			host.appendChild(panel);
+		}
 	}
 
 	function ensureRaceConditionMetricElement() {
