@@ -26,15 +26,25 @@
 	let cooldownInterval = null;
 	let raceConditionCount = 0;
 
-	function setupMetricsPanelPosition() {
+	function getMetricsTableElement() {
 		const anchor = apiLatencyAvgEl || apiLatencyJitterEl || queueWaitAvgEl || queueWaitJitterEl || apiLatencyLastEl || queueWaitLastEl;
-		if (!anchor) return;
+		if (!anchor) return null;
+		return anchor.closest("table") || null;
+	}
 
-		const table = anchor.closest("table");
-		const panel = (table && table.parentElement) || anchor.closest("section, .box, .card, div");
-		if (!panel) return;
+	function setupMetricsPanelPosition() {
+		const table = getMetricsTableElement();
+		if (!table) return;
 
-		panel.classList.add("metrics-floating");
+		table.classList.add("metrics-floating");
+
+		// dodatkowe wymuszenie, gdyby layout nadpisywał klasę
+		table.style.setProperty("position", "fixed", "important");
+		table.style.setProperty("left", "16px", "important");
+		table.style.setProperty("bottom", "16px", "important");
+		table.style.setProperty("right", "auto", "important");
+		table.style.setProperty("top", "auto", "important");
+		table.style.setProperty("z-index", "9999", "important");
 	}
 
 	function ensureRaceConditionMetricElement() {
@@ -329,6 +339,7 @@
 		} else {
 			renderRaceConditionCount(raceConditionCount);
 		}
+		setupMetricsPanelPosition();
 	}
 
 	// Funkcja do zastosowania stanu kolejki i aktualizacji interfejsu
@@ -443,6 +454,8 @@
 		if (toggleGenerationBtn) {
 			toggleGenerationBtn.addEventListener("click", toggleGeneration);
 		}
+
+		setupMetricsPanelPosition();
 	});
 
 	refreshQueueState();

@@ -1,14 +1,18 @@
 .metrics-floating {
-	position: fixed;
-	left: 16px;
-	bottom: 16px;
-	z-index: 900;
-	max-width: 380px;
+	position: fixed !important;
+	left: 16px !important;
+	bottom: 16px !important;
+	top: auto !important;
+	right: auto !important;
+	z-index: 9999 !important;
+	width: min(380px, calc(100vw - 32px)) !important;
+	max-width: 380px !important;
 	background: #fff;
 	border: 1px solid #ddd;
 	border-radius: 8px;
 	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
 	padding: 8px;
+	margin: 0 !important;
 }
 
 .metrics-floating table {
