@@ -73,11 +73,52 @@
 
     <div style="margin: 10px 0 16px; padding: 10px; border: 1px solid #ddd; border-radius: 6px; background: #fafafa;">
         <strong>Metryki (latencja / jitter):</strong>
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; font-size: 0.95em;">
-            <div>API latencja avg: <span id="metric-api-latency-avg">{{ metrics.api_latency_avg_ms if metrics is defined else 0 }} ms</span></div>
-            <div>API jitter: <span id="metric-api-latency-jitter">{{ metrics.api_latency_jitter_ms if metrics is defined else 0 }} ms</span></div>
-            <div>API latencja last: <span id="metric-api-latency-last">{{ metrics.api_latency_last_ms if metrics is defined else 0 }} ms</span></div>
-        </div>
+        <table style="width:100%; border-collapse: collapse; margin-top: 8px; font-size: 0.95em;">
+            <tbody>
+                <tr>
+                    <td style="padding: 6px 8px;">API latencja avg (admit + zmiana priorytetu, round-trip)</td>
+                    <td style="padding: 6px 8px; font-weight: 600;">
+                        <span id="metric-api-latency-avg">{{ metrics.api_latency_avg_ms if metrics is defined else 0 }} ms</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px 8px;">API jitter (admit + zmiana priorytetu, round-trip)</td>
+                    <td style="padding: 6px 8px; font-weight: 600;">
+                        <span id="metric-api-latency-jitter">{{ metrics.api_latency_jitter_ms if metrics is defined else 0 }} ms</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px 8px;">API latencja last (admit + zmiana priorytetu, round-trip)</td>
+                    <td style="padding: 6px 8px; font-weight: 600;">
+                        <span id="metric-api-latency-last">{{ metrics.api_latency_last_ms if metrics is defined else 0 }} ms</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px 8px;">Queue wait avg</td>
+                    <td style="padding: 6px 8px; font-weight: 600;">
+                        <span id="metric-queue-wait-avg">{{ metrics.queue_wait_avg_s if metrics is defined else 0 }} s</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px 8px;">Queue wait jitter</td>
+                    <td style="padding: 6px 8px; font-weight: 600;">
+                        <span id="metric-queue-wait-jitter">{{ metrics.queue_wait_jitter_s if metrics is defined else 0 }} s</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px 8px;">Queue wait last</td>
+                    <td style="padding: 6px 8px; font-weight: 600;">
+                        <span id="metric-queue-wait-last">{{ metrics.queue_wait_last_s if metrics is defined else 0 }} s</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 6px 8px;">Race condition</td>
+                    <td style="padding: 6px 8px; font-weight: 600;">
+                        <span id="metric-race-condition-count">{{ metrics.race_condition_count if metrics is defined else 0 }}</span>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
     </div>
 
 	<div id="cooldown-container" style="margin-bottom: 15px; display: none;">
