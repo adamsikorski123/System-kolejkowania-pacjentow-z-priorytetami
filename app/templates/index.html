@@ -29,6 +29,19 @@
             text-align: center;
             vertical-align: middle;
         }
+
+        .metrics-floating {
+            position: fixed;
+            bottom: 16px;
+            left: 16px;
+            z-index: 1000;
+            background: #fafafa;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 10px;
+            font-size: 0.9em;
+            min-width: 220px;
+        }
     </style>
 </head>
 <body style="font-family: Arial, sans-serif; max-width: 800px; margin: auto;" data-wait-time='{{ wait_time|tojson }}' data-current-service-seconds='{{ current_service_seconds|tojson }}'>
@@ -74,23 +87,24 @@
             </div>
         </div>
 
-        <form method="post" action="/admit" id="admitForm">
-            <button type="submit" id="admitBtn" style="background: #28a745; color: white; border: none; padding: 10px; cursor: pointer;">
-                PRZYJMIJ NASTĘPNEGO
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <form method="post" action="/admit" id="admitForm" style="margin: 0;">
+                <button type="submit" id="admitBtn" style="background: #28a745; color: white; border: none; padding: 10px; cursor: pointer;">
+                    PRZYJMIJ NASTĘPNEGO
+                </button>
+                <span id="timer" style="margin-left: 10px; color: red; font-weight: bold;"></span>
+            </form>
+            <button id="toggleGenerationBtn" type="button" style="background: #e67e00; color: white; border: none; padding: 10px; cursor: pointer;">
+                WSTRZYMAJ GENEROWANIE
             </button>
-            <span id="timer" style="margin-left: 10px; color: red; font-weight: bold;"></span>
-        </form>
+        </div>
 
         <button id="resetQueueBtn" type="button" style="background: #dc3545; color: white; border: none; padding: 10px; cursor: pointer; margin-top: 10px;">
             ZERUJ KOLEJKĘ
         </button>
 
-        <button id="toggleGenerationBtn" type="button" style="background: #e67e00; color: white; border: none; padding: 10px; cursor: pointer; margin-top: 10px; margin-left: 8px;">
-            WSTRZYMAJ GENEROWANIE
-        </button>
-
         <div style="margin-top: 10px;">
-            <button id="toggleProtectionBtn" type="button" style="background: #dc3545; color: white; border: none; padding: 10px; cursor: pointer;">
+            <button id="toggleProtectionBtn" type="button" style="background: #dc3545; color: white; border: none; padding: 10px; cursor: pointer; white-space: normal; line-height: 1.4;">
                 WŁĄCZ ZABEZPIECZENIA PRZED RACE CONDITION
             </button>
         </div>

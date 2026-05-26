@@ -76,7 +76,7 @@
 		if (row && row.parentElement) {
 			const raceRow = document.createElement("tr");
 			raceRow.innerHTML = `
-				<td style="padding: 6px 8px;">Race condition (409)</td>
+				<td style="padding: 6px 8px;">Race condition</td>
 				<td id="metric-race-condition-count" style="padding: 6px 8px; font-weight: 600;">0</td>
 			`;
 			row.parentElement.appendChild(raceRow);
@@ -458,10 +458,10 @@
 	function updateProtectionBtn(enabled) {
 		if (!toggleProtectionBtn) return;
 		if (enabled) {
-			toggleProtectionBtn.textContent = "WYŁĄCZ ZABEZPIECZENIA PRZED RACE CONDITION";
+			toggleProtectionBtn.innerHTML = "WYŁĄCZ ZABEZPIECZENIA<br>PRZED RACE CONDITION";
 			toggleProtectionBtn.style.background = "#28a745";
 		} else {
-			toggleProtectionBtn.textContent = "WŁĄCZ ZABEZPIECZENIA PRZED RACE CONDITION";
+			toggleProtectionBtn.innerHTML = "WŁĄCZ ZABEZPIECZENIA<br>PRZED RACE CONDITION";
 			toggleProtectionBtn.style.background = "#dc3545";
 		}
 	}
@@ -500,7 +500,7 @@
 
 		if (toggleProtectionBtn) {
 			toggleProtectionBtn.style.position = "fixed";
-			toggleProtectionBtn.style.top = "52px";
+			toggleProtectionBtn.style.top = "62px";
 			toggleProtectionBtn.style.right = "16px";
 			toggleProtectionBtn.style.zIndex = "1000";
 			toggleProtectionBtn.addEventListener("click", toggleProtection);
