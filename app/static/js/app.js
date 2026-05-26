@@ -216,6 +216,8 @@
 			if (response.ok) {
 				const state = await response.json();
 				applyState(state);
+			} else if (response.status === 409) {
+				alert("RACE CONDITION: priorytet został już zmieniony przez innego operatora!");
 			} else {
 				alert("Błąd przy zmianie priorytetu pacjenta.");
 				location.reload();
@@ -245,6 +247,8 @@
 			if (response.ok) {
 				const state = await response.json();
 				applyState(state);
+			} else if (response.status === 409) {
+				alert("Priorytet został już zmieniony przez innego operatora!");
 			} else {
 				alert("Błąd przy zmianie priorytetu pacjenta.");
 				location.reload();

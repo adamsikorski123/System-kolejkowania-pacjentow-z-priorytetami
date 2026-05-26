@@ -129,6 +129,10 @@ class PatientRegistry:
                 break
 
         if patient:
+            old_priority = patient["priority"]
+            time.sleep(0.5)  # celowe opóźnienie do demonstracji race condition
+            if patient["priority"] != old_priority:
+                return "conflict"
             patient["priority"] = new_priority
             patient["service_time_seconds"] = get_service_time_for_priority(new_priority)
             self._sort_patients()
@@ -388,9 +392,12 @@ def change_priority():
     except (ValueError, TypeError):
         return jsonify({"success": False, "error": "Invalid patient_id or priority"}), 400
 
-    success = patient_registry.change_patient_priority(patient_id, new_priority)
+    result = patient_registry.change_patient_priority(patient_id, new_priority)
 
-    if success:
+    if result == "conflict":
+        return jsonify({"success": False, "conflict": True}), 409
+
+    if result:
         updated = next((p for p in patient_registry.all_patients() if p.get("id") == patient_id), None)
         if isinstance(updated, dict):
             updated = dict(updated)
@@ -400,7 +407,7 @@ def change_priority():
             patient_db.add_patient(updated)
 
     state = _build_queue_state(_get_request_user_key())
-    state["success"] = success
+    state["success"] = bool(result)
     return jsonify(state)
 
 # Endpoint API przełączający stan generowania pacjentów (wstrzymaj/wznów).
