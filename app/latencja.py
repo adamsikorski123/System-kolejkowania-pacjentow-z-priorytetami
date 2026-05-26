@@ -6,6 +6,7 @@ class LatencyJitterMeter:
     def __init__(self, max_samples: int = 300):
         self._api_latency_ms = deque(maxlen=max_samples)
         self._queue_wait_s = deque(maxlen=max_samples)
+        self._race_condition_count = 0
         self._lock = threading.Lock() # blokada do synchronizacji dostępu do kolejek, aby zapewnić bezpieczeństwo wątkowe podczas dodawania nowych wartości i tworzenia migawki danych.
 
     # Metoda pomocnicza do obliczania średniej z listy wartości.
@@ -31,6 +32,10 @@ class LatencyJitterMeter:
         #with self._lock:
             self._queue_wait_s.append(float(value))
 
+    # Metoda do rejestrowania wykrytych konfliktów (np. HTTP 409).
+    def record_race_condition(self, occurrences: int = 1):
+        self._race_condition_count += max(1, int(occurrences))
+
     # Metoda do tworzenia migawki aktualnych wartości opóźnień i czasu oczekiwania.
     def snapshot(self):
         #with self._lock:
@@ -44,4 +49,5 @@ class LatencyJitterMeter:
             "queue_wait_last_s": round(qwait[-1], 2) if qwait else 0.0,
             "queue_wait_avg_s": round(self._avg(qwait), 2),
             "queue_wait_jitter_s": round(self._jitter(qwait), 2),
+            "race_condition_count": int(self._race_condition_count),
         }

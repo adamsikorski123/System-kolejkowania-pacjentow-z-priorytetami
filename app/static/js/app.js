@@ -18,11 +18,60 @@
 	const apiLatencyLastEl = document.getElementById("metric-api-latency-last");
 	const queueWaitLastEl = document.getElementById("metric-queue-wait-last");
 	const toggleGenerationBtn = document.getElementById("toggleGenerationBtn");
+	let raceConditionCountEl = document.getElementById("metric-race-condition-count");
 
 	// Inicjalizacja czasu oczekiwania i całkowitego czasu obsługi z atrybutów danych
 	let waitTime = Number(body?.dataset?.waitTime ?? "0") || 0;
 	let totalTime = Number(body?.dataset?.currentServiceSeconds ?? "0") || 0;
 	let cooldownInterval = null;
+	let localRaceConditionCount = 0;
+
+	function setupMetricsPanelPosition() {
+		const anchor = apiLatencyAvgEl || apiLatencyJitterEl || queueWaitAvgEl || queueWaitJitterEl || apiLatencyLastEl || queueWaitLastEl;
+		if (!anchor) return;
+
+		const table = anchor.closest("table");
+		const panel = (table && table.parentElement) || anchor.closest("section, .box, .card, div");
+		if (!panel) return;
+
+		panel.classList.add("metrics-floating");
+	}
+
+	function ensureRaceConditionMetricElement() {
+		if (raceConditionCountEl) return;
+
+		const anchor = queueWaitLastEl || apiLatencyLastEl || queueWaitAvgEl || apiLatencyAvgEl;
+		if (!anchor) return;
+
+		const row = anchor.closest("tr");
+		if (row && row.parentElement) {
+			const raceRow = document.createElement("tr");
+			raceRow.innerHTML = `
+				<td style="padding: 6px 8px;">Race condition (409)</td>
+				<td id="metric-race-condition-count" style="padding: 6px 8px; font-weight: 600;">0</td>
+			`;
+			row.parentElement.appendChild(raceRow);
+			raceConditionCountEl = raceRow.querySelector("#metric-race-condition-count");
+			return;
+		}
+
+		const fallback = document.createElement("div");
+		fallback.innerHTML = `Race condition (409): <strong id="metric-race-condition-count">0</strong>`;
+		(anchor.parentElement || document.body).appendChild(fallback);
+		raceConditionCountEl = fallback.querySelector("#metric-race-condition-count");
+	}
+
+	function renderRaceConditionCount(value) {
+		ensureRaceConditionMetricElement();
+		if (raceConditionCountEl) {
+			raceConditionCountEl.textContent = `${Math.max(0, Number(value) || 0)}`;
+		}
+	}
+
+	function registerRaceCondition() {
+		localRaceConditionCount += 1;
+		renderRaceConditionCount(localRaceConditionCount);
+	}
 
 	// Funkcja do odliczania aktualizacji interfejsu - progress bar
 	function startCooldown() {
@@ -217,6 +266,7 @@
 				const state = await response.json();
 				applyState(state);
 			} else if (response.status === 409) {
+				registerRaceCondition();
 				alert("RACE CONDITION: priorytet został już zmieniony przez innego operatora!");
 			} else {
 				alert("Błąd przy zmianie priorytetu pacjenta.");
@@ -248,6 +298,7 @@
 				const state = await response.json();
 				applyState(state);
 			} else if (response.status === 409) {
+				registerRaceCondition();
 				alert("Priorytet został już zmieniony przez innego operatora!");
 			} else {
 				alert("Błąd przy zmianie priorytetu pacjenta.");
@@ -266,6 +317,11 @@
 		if (queueWaitJitterEl) queueWaitJitterEl.textContent = `${Number(state.queue_wait_jitter_s ?? 0).toFixed(2)} s`;
 		if (apiLatencyLastEl) apiLatencyLastEl.textContent = `${Number(state.api_latency_last_ms ?? 0).toFixed(2)} ms`;
 		if (queueWaitLastEl) queueWaitLastEl.textContent = `${Number(state.queue_wait_last_s ?? 0).toFixed(2)} s`;
+
+		if (state && state.race_condition_count !== undefined && state.race_condition_count !== null) {
+			localRaceConditionCount = Math.max(0, Number(state.race_condition_count) || 0);
+		}
+		renderRaceConditionCount(localRaceConditionCount);
 	}
 
 	// Funkcja do zastosowania stanu kolejki i aktualizacji interfejsu
@@ -299,8 +355,11 @@
 				if (response.ok) {
 					const state = await response.json();
 					applyState(state);
-				} else {
+				} else if (response.status === 409) {
+					registerRaceCondition();
 					alert("Pacjent został już przyjęty przez innego operatora!");
+				} else {
+					alert("Błąd podczas przyjmowania pacjenta.");
 				}
 			} catch (error) {
 				console.error("Błąd przy przyjmowaniu pacjenta:", error);
@@ -357,6 +416,9 @@
 
 	startCooldown();
 	setupAdmitForm();
+	setupMetricsPanelPosition();
+	ensureRaceConditionMetricElement();
+	renderRaceConditionCount(localRaceConditionCount);
 
 	document.addEventListener("DOMContentLoaded", () => {
 		const resetBtn = document.getElementById("resetQueueBtn");

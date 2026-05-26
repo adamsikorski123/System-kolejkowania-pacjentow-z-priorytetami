@@ -1,0 +1,17 @@
+.metrics-floating {
+	position: fixed;
+	left: 16px;
+	bottom: 16px;
+	z-index: 900;
+	max-width: 380px;
+	background: #fff;
+	border: 1px solid #ddd;
+	border-radius: 8px;
+	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+	padding: 8px;
+}
+
+.metrics-floating table {
+	width: 100%;
+	margin: 0;
+}
