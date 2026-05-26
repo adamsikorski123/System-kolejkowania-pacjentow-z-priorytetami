@@ -499,6 +499,10 @@
 		}
 
 		if (toggleProtectionBtn) {
+			toggleProtectionBtn.style.position = "fixed";
+			toggleProtectionBtn.style.top = "52px";
+			toggleProtectionBtn.style.right = "16px";
+			toggleProtectionBtn.style.zIndex = "1000";
 			toggleProtectionBtn.addEventListener("click", toggleProtection);
 		}
 
