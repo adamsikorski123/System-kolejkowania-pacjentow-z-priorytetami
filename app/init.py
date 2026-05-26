@@ -300,6 +300,7 @@ def _build_queue_state(user_key: str):
         "queue_wait_last_s": metrics["queue_wait_last_s"],
         "queue_wait_avg_s": metrics["queue_wait_avg_s"],
         "queue_wait_jitter_s": metrics["queue_wait_jitter_s"],
+        "race_condition_count": metrics["race_condition_count"],
         "generation_paused": paused,
     }
 
@@ -341,12 +342,19 @@ def queue_state():
 # Endpoint API zwracający informację o tym, czy udało się przyjąć kolejnego pacjenta oraz aktualny stan kolejki po tej operacji.
 @app.route('/api/queue/admit', methods=['POST'])
 def queue_admit():
-    user_key = _get_request_user_key() # Pobieramy unikalny klucz użytkownika na podstawie sesji, aby mieć oddzielny stan dla każdego operatora (np. aktualnie obsługiwany pacjent, czas ostatniego przyjęcia pacjenta itp.)
+    user_key = _get_request_user_key()
     t0 = time.perf_counter()
     admitted = patient_registry.admit_patient(user_key)
 
     if admitted == "conflict":
-        return jsonify({"success": False, "conflict": True}), 409
+        latency_meter.record_race_condition()
+        api_latency_ms = (time.perf_counter() - t0) * 1000.0
+        latency_meter.record_api_latency_ms(api_latency_ms)
+        return jsonify({
+            "success": False,
+            "conflict": True,
+            "race_condition_count": latency_meter.snapshot()["race_condition_count"],
+        }), 409
 
     if admitted:
         current = patient_registry.get_current_patient(user_key)
@@ -406,7 +414,12 @@ def change_priority():
     result = patient_registry.change_patient_priority(patient_id, new_priority, _get_request_user_key())
 
     if result == "conflict":
-        return jsonify({"success": False, "conflict": True}), 409
+        latency_meter.record_race_condition()
+        return jsonify({
+            "success": False,
+            "conflict": True,
+            "race_condition_count": latency_meter.snapshot()["race_condition_count"],
+        }), 409
 
     if result:
         updated = next((p for p in patient_registry.all_patients() if p.get("id") == patient_id), None)

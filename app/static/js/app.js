@@ -24,7 +24,7 @@
 	let waitTime = Number(body?.dataset?.waitTime ?? "0") || 0;
 	let totalTime = Number(body?.dataset?.currentServiceSeconds ?? "0") || 0;
 	let cooldownInterval = null;
-	let localRaceConditionCount = 0;
+	let raceConditionCount = 0;
 
 	function setupMetricsPanelPosition() {
 		const anchor = apiLatencyAvgEl || apiLatencyJitterEl || queueWaitAvgEl || queueWaitJitterEl || apiLatencyLastEl || queueWaitLastEl;
@@ -68,9 +68,9 @@
 		}
 	}
 
-	function registerRaceCondition() {
-		localRaceConditionCount += 1;
-		renderRaceConditionCount(localRaceConditionCount);
+	function syncRaceConditionCount(value) {
+		raceConditionCount = Math.max(0, Number(value) || 0);
+		renderRaceConditionCount(raceConditionCount);
 	}
 
 	// Funkcja do odliczania aktualizacji interfejsu - progress bar
@@ -266,7 +266,10 @@
 				const state = await response.json();
 				applyState(state);
 			} else if (response.status === 409) {
-				registerRaceCondition();
+				const data = await response.json().catch(() => null);
+				if (data?.race_condition_count !== undefined) {
+					syncRaceConditionCount(data.race_condition_count);
+				}
 				alert("RACE CONDITION: priorytet został już zmieniony przez innego operatora!");
 			} else {
 				alert("Błąd przy zmianie priorytetu pacjenta.");
@@ -298,7 +301,10 @@
 				const state = await response.json();
 				applyState(state);
 			} else if (response.status === 409) {
-				registerRaceCondition();
+				const data = await response.json().catch(() => null);
+				if (data?.race_condition_count !== undefined) {
+					syncRaceConditionCount(data.race_condition_count);
+				}
 				alert("Priorytet został już zmieniony przez innego operatora!");
 			} else {
 				alert("Błąd przy zmianie priorytetu pacjenta.");
@@ -319,9 +325,10 @@
 		if (queueWaitLastEl) queueWaitLastEl.textContent = `${Number(state.queue_wait_last_s ?? 0).toFixed(2)} s`;
 
 		if (state && state.race_condition_count !== undefined && state.race_condition_count !== null) {
-			localRaceConditionCount = Math.max(0, Number(state.race_condition_count) || 0);
+			syncRaceConditionCount(state.race_condition_count);
+		} else {
+			renderRaceConditionCount(raceConditionCount);
 		}
-		renderRaceConditionCount(localRaceConditionCount);
 	}
 
 	// Funkcja do zastosowania stanu kolejki i aktualizacji interfejsu
@@ -356,7 +363,10 @@
 					const state = await response.json();
 					applyState(state);
 				} else if (response.status === 409) {
-					registerRaceCondition();
+					const data = await response.json().catch(() => null);
+					if (data?.race_condition_count !== undefined) {
+						syncRaceConditionCount(data.race_condition_count);
+					}
 					alert("Pacjent został już przyjęty przez innego operatora!");
 				} else {
 					alert("Błąd podczas przyjmowania pacjenta.");
@@ -418,7 +428,7 @@
 	setupAdmitForm();
 	setupMetricsPanelPosition();
 	ensureRaceConditionMetricElement();
-	renderRaceConditionCount(localRaceConditionCount);
+	renderRaceConditionCount(raceConditionCount);
 
 	document.addEventListener("DOMContentLoaded", () => {
 		const resetBtn = document.getElementById("resetQueueBtn");

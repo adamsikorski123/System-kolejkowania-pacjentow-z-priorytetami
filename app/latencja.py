@@ -34,13 +34,17 @@ class LatencyJitterMeter:
 
     # Metoda do rejestrowania wykrytych konfliktów (np. HTTP 409).
     def record_race_condition(self, occurrences: int = 1):
-        self._race_condition_count += max(1, int(occurrences))
+        with self._lock:
+            self._race_condition_count += max(1, int(occurrences))
 
     # Metoda do tworzenia migawki aktualnych wartości opóźnień i czasu oczekiwania.
     def snapshot(self):
         #with self._lock:
             api = list(self._api_latency_ms)
             qwait = list(self._queue_wait_s)
+
+            with self._lock:
+                race_count = int(self._race_condition_count)
 
             return {
             "api_latency_last_ms": round(api[-1], 2) if api else 0.0,
@@ -49,5 +53,5 @@ class LatencyJitterMeter:
             "queue_wait_last_s": round(qwait[-1], 2) if qwait else 0.0,
             "queue_wait_avg_s": round(self._avg(qwait), 2),
             "queue_wait_jitter_s": round(self._jitter(qwait), 2),
-            "race_condition_count": int(self._race_condition_count),
+            "race_condition_count": race_count,
         }
