@@ -338,6 +338,15 @@ def _build_queue_state(user_key: str):
         "api_latency_last_ms": metrics["api_latency_last_ms"],
         "api_latency_avg_ms": metrics["api_latency_avg_ms"],
         "api_latency_jitter_ms": metrics["api_latency_jitter_ms"],
+
+        "admit_latency_last_ms": metrics["admit_latency_last_ms"],
+        "admit_latency_avg_ms": metrics["admit_latency_avg_ms"],
+        "admit_latency_jitter_ms": metrics["admit_latency_jitter_ms"],
+
+        "prio_latency_last_ms": metrics["prio_latency_last_ms"],
+        "prio_latency_avg_ms": metrics["prio_latency_avg_ms"],
+        "prio_latency_jitter_ms": metrics["prio_latency_jitter_ms"],
+
         "queue_wait_last_s": metrics["queue_wait_last_s"],
         "queue_wait_avg_s": metrics["queue_wait_avg_s"],
         "queue_wait_jitter_s": metrics["queue_wait_jitter_s"],
@@ -391,7 +400,7 @@ def queue_admit():
     if admitted == "conflict":
         latency_meter.record_race_condition()
         api_latency_ms = (time.perf_counter() - t0) * 1000.0
-        latency_meter.record_api_latency_ms(api_latency_ms)
+        latency_meter.record_admit_api_latency_ms(api_latency_ms)
         return jsonify({
             "success": False,
             "conflict": True,
@@ -410,8 +419,8 @@ def queue_admit():
             if current.get("id") is not None:
                 patient_db.delete_patient(int(current["id"]))
 
-    api_latency_ms = (time.perf_counter() - t0) * 1000.0 # Obliczamy czas trwania operacji przyjęcia pacjenta w milisekundach, aby mieć metrykę opóźnienia API dla tego endpointu.
-    latency_meter.record_api_latency_ms(api_latency_ms)
+    api_latency_ms = (time.perf_counter() - t0) * 1000.0
+    latency_meter.record_admit_api_latency_ms(api_latency_ms)
 
     state = _build_queue_state(user_key)
     state["admitted"] = admitted
@@ -444,7 +453,7 @@ def change_priority():
 
     def _respond(payload, status=200):
         api_latency_ms = (time.perf_counter() - t0) * 1000.0
-        latency_meter.record_api_latency_ms(api_latency_ms)
+        latency_meter.record_prio_api_latency_ms(api_latency_ms)
         return jsonify(payload), status
 
     data = request.get_json()

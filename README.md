@@ -27,6 +27,7 @@
 2. [Projekt architektury systemu](#2-projekt-architektury-systemu)
 3. [Symulacja zaburzeń](#3-symulacja-zaburzeń)
 4. [Instrumentacja](#4-instrumentacja)
+5. [Omówienie zagadnień współbieżności (race condition)](#5-omówienie-zagadnień-współbieżności-race-condition)
 
 
 ---
@@ -170,3 +171,58 @@ Koniec pomiaru i obliczenie latencji.
 ### 4.3 API jitter
 
 Istotnym uzupełnieniem pomiaru latencji jest pomiar jitteru, czyli zmienności opóźnienia pomiędzy kolejnymi wykonaniami tej samej lub podobnej operacji. Jitter pokazuje, na ile stabilny czasowo jest system: nawet jeśli średnia latencja pozostaje akceptowalna, duże wahania pomiędzy kolejnymi pomiarami mogą świadczyć o niestabilności działania, przeciążeniu lub problemach ze współbieżnością. Dzięki instrumentacji możliwe jest więc nie tylko określenie średniego czasu odpowiedzi, ale także ocena, czy system działa w sposób przewidywalny i powtarzalny.
+
+---
+
+## 5. Omówienie zagadnień współbieżności (race condition)
+
+### 5.1 Czym jest współbieżność
+
+Współbieżność oznacza wykonywanie wielu operacji „w tym samym czasie” (np. przez wiele wątków lub wielu użytkowników systemu).  
+W aplikacjach webowych oznacza to, że serwer może obsługiwać kilka żądań jednocześnie, które odwołują się do tych samych danych.
+
+### 5.2 Czym jest race condition
+
+Race condition (wyścig) występuje wtedy, gdy wynik końcowy zależy od kolejności wykonania równoległych operacji na wspólnym zasobie.  
+Jeżeli nie ma poprawnej synchronizacji, dwa żądania mogą odczytać ten sam stan „przed zmianą” i zapisać kolidujące wyniki.
+
+### 5.3 Jak race condition wygląda w naszym projekcie
+
+W projekcie występują dwa główne miejsca podatne na wyścig:
+
+1. **Przyjęcie pacjenta**  
+   Dwóch operatorów może równocześnie próbować przyjąć tego samego pierwszego pacjenta z kolejki.
+
+2. **Zmiana priorytetu**  
+   Dwóch operatorów może jednocześnie zmieniać priorytet tego samego pacjenta (np. jeden zwiększa, drugi zmniejsza).
+
+### 5.4 Wymuszenie race condition
+
+Do celów dydaktycznych race condition jest świadomie wzmacniany przez:
+- równoległe żądania (test wielowątkowy),
+- celowe opóźnienie (`time.sleep(0.5)`) w sekcjach krytycznych przy wyłączonej ochronie.
+
+Dzięki temu łatwo odtworzyć konflikt i obserwować jego skutki w API i metrykach.
+
+### 5.5 Mechanizm blokady / wersjonowania
+
+W projekcie zastosowano dwa podejścia:
+
+- **Blokada (lock)**  
+  Przy włączonej ochronie operacje wykonywane są w sekcji krytycznej, co serializuje dostęp do kolejki i ogranicza konflikty.
+
+- **Wykrywanie konfliktu zapisu (wariant wersjonowania logicznego, tryb bez ochrony)**  
+  Dla zmiany priorytetu wykorzystywany jest znacznik ostatniego autora (`_last_writer`) oraz porównanie stanu przed/po (`old_priority` vs bieżący `priority`).  
+  Jeśli w międzyczasie inny operator zmieni rekord, backend zwraca `"conflict"`, a endpoint mapuje to na HTTP `409`.
+
+### 5.6 Porównanie przed i po poprawce (test)
+
+Do porównania używany jest skrypt `test.py`, który:
+- loguje kilku użytkowników,
+- uruchamia równoczesne żądania w rundach (`admit` albo `priority`),
+- zbiera statusy odpowiedzi (`200`, `409`, `-1`) i podsumowanie.
+
+Interpretacja wyników:
+- **Przed poprawką / przy wyłączonej ochronie**: częstsze konflikty i niestabilność wyniku (więcej sytuacji wyścigu).
+- **Po poprawce / przy włączonej ochronie**: stabilniejszy, deterministyczny przebieg operacji (mniej konfliktów logicznych).
+- Dodatkowo w UI aktualizowane są metryki latencji/jitteru dla `admit` i `priority` oraz licznik `Race condition`, co pozwala obserwować efekt zmian na żywo.
