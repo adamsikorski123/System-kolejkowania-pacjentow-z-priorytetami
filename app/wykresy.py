@@ -1,3 +1,4 @@
+
 """
 Moduł generowania wykresów latencji i jittera do wyświetlania
 w interfejsie webowym aplikacji.
@@ -7,7 +8,7 @@ przez Flask jako Response z mimetype 'image/png'.
 Nie są zapisywane na dysk.
 
 Endpointy w init.py wywołują funkcje tego modułu przy każdym odświeżeniu
-przez przeglądarkę (co ~3 sekundy via JavaScript).
+przez przeglądarkę (co ~3 sekundy przez JavaScript).
 """
 
 import io
@@ -19,7 +20,7 @@ import matplotlib.pyplot as plt
 # Poniżej tej wartości zwracany jest placeholder z komunikatem.
 MIN_POINTS = 3
 
-
+# Funkcja pomocnicza do obliczania jittera z listy latencji.
 def _compute_jitter(values: list[float]) -> list[float]:
     # Jitter_N = |wartość_N - wartość_(N-1)|; pierwsza wartość zawsze = 0
     jitters = [0.0]
@@ -27,7 +28,7 @@ def _compute_jitter(values: list[float]) -> list[float]:
         jitters.append(abs(values[i] - values[i - 1]))
     return jitters
 
-
+# Funkcja pomocnicza do generowania prostego PNG z tekstem, gdy za mało danych do wykresu.
 def _placeholder_png(message: str) -> bytes:
     # Zwraca prosty PNG z tekstem gdy za mało danych do wykresu
     fig, ax = plt.subplots(figsize=(7, 3))
@@ -43,7 +44,7 @@ def _placeholder_png(message: str) -> bytes:
     buf.seek(0)
     return buf.getvalue()
 
-
+# Funkcja pomocnicza do konwersji figury matplotlib do PNG w pamięci.
 def _to_png(fig) -> bytes:
     # Zapisuje figurę matplotlib do bajtów PNG i zwalnia pamięć
     buf = io.BytesIO()
@@ -52,7 +53,7 @@ def _to_png(fig) -> bytes:
     buf.seek(0)
     return buf.getvalue()
 
-
+# Główne funkcje do generowania wykresów latencji i jittera.
 def generate_latency_png(history: list[float], title: str) -> bytes:
     """
     Wykres latencji HTTP per operacja.
@@ -79,7 +80,7 @@ def generate_latency_png(history: list[float], title: str) -> bytes:
     fig.tight_layout()
     return _to_png(fig)
 
-
+# Wykres jittera latencji HTTP per operacja.
 def generate_jitter_png(history: list[float], title: str) -> bytes:
     """
     Wykres jittera latencji HTTP per operacja.
