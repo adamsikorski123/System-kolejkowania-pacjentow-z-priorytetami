@@ -239,7 +239,7 @@ Do porównania używany jest skrypt `test.py`, który:
 Interpretacja wyników:
 - **Przed poprawką / przy wyłączonej ochronie**: częstsze konflikty i niestabilność wyniku (więcej sytuacji wyścigu).
 
-Przyjęcie pacjenta:
+**Przyjęcie pacjenta:**
 
   Wyniki: tryb=admit, wątki=2
 
@@ -247,7 +247,7 @@ Przyjęcie pacjenta:
   Wszyscy 200 (race condition):      0  ← wyścig niezauważony
   Przynajmniej jeden 409:           10  ← wykryty wyścig
 
-Zmiana priorytetu:
+**Zmiana priorytetu:**
 
   Wyniki: tryb=priority, wątki=2
 
@@ -257,7 +257,7 @@ Zmiana priorytetu:
 
 - **Po poprawce / przy włączonej ochronie**: stabilniejszy, deterministyczny przebieg operacji (mniej konfliktów logicznych).
 
-Przyjęcie pacjenta:
+**Przyjęcie pacjenta:**
 
   Wyniki: tryb=admit, wątki=2
 
@@ -265,7 +265,7 @@ Przyjęcie pacjenta:
   Wszyscy 200 (race condition):     10  ← wyścig niezauważony
   Przynajmniej jeden 409:            0  ← wykryty wyścig
 
-Zmiana priorytetu:
+**Zmiana priorytetu:**
 
   Wyniki: tryb=priority, wątki=2
 
