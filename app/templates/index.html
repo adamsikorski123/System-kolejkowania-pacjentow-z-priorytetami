@@ -191,6 +191,73 @@
       Zalogowano jako: <strong>{{ current_user or '-' }}</strong>
     </div>
 
+    <div style="margin-top: 30px; border-top: 1px solid #ddd; padding-top: 16px; margin-bottom: 20px;">
+        <h3 style="margin-bottom: 12px;">Wykresy latencji i jittera</h3>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+
+            <div style="border: 1px solid #ddd; border-radius: 6px; padding: 8px; background: #fafafa;">
+                <div style="font-size: 0.85em; color: #555; margin-bottom: 4px; font-weight: bold;">
+                    Przyjęcie pacjenta — latencja
+                </div>
+                <img id="chart-admit-latency"
+                     src="/api/charts/admit/latency"
+                     style="width: 100%; display: block; border-radius: 4px;"
+                     alt="wykres latencji przyjęcia" />
+            </div>
+
+            <div style="border: 1px solid #ddd; border-radius: 6px; padding: 8px; background: #fafafa;">
+                <div style="font-size: 0.85em; color: #555; margin-bottom: 4px; font-weight: bold;">
+                    Przyjęcie pacjenta — jitter
+                </div>
+                <img id="chart-admit-jitter"
+                     src="/api/charts/admit/jitter"
+                     style="width: 100%; display: block; border-radius: 4px;"
+                     alt="wykres jittera przyjęcia" />
+            </div>
+
+            <div style="border: 1px solid #ddd; border-radius: 6px; padding: 8px; background: #fafafa;">
+                <div style="font-size: 0.85em; color: #555; margin-bottom: 4px; font-weight: bold;">
+                    Zmiana priorytetu — latencja
+                </div>
+                <img id="chart-priority-latency"
+                     src="/api/charts/priority/latency"
+                     style="width: 100%; display: block; border-radius: 4px;"
+                     alt="wykres latencji priorytetu" />
+            </div>
+
+            <div style="border: 1px solid #ddd; border-radius: 6px; padding: 8px; background: #fafafa;">
+                <div style="font-size: 0.85em; color: #555; margin-bottom: 4px; font-weight: bold;">
+                    Zmiana priorytetu — jitter
+                </div>
+                <img id="chart-priority-jitter"
+                     src="/api/charts/priority/jitter"
+                     style="width: 100%; display: block; border-radius: 4px;"
+                     alt="wykres jittera priorytetu" />
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // Odświeża wykresy co 3 sekundy.
+        // Parametr ?t= zapobiega cachowaniu obrazków przez przeglądarkę.
+        var chartIds = [
+            ['chart-admit-latency',   '/api/charts/admit/latency'],
+            ['chart-admit-jitter',    '/api/charts/admit/jitter'],
+            ['chart-priority-latency','/api/charts/priority/latency'],
+            ['chart-priority-jitter', '/api/charts/priority/jitter']
+        ];
+        function refreshCharts() {
+            var ts = Date.now();
+            chartIds.forEach(function(pair) {
+                var el = document.getElementById(pair[0]);
+                if (el) el.src = pair[1] + '?t=' + ts;
+            });
+        }
+        setInterval(refreshCharts, 3000);
+    </script>
+
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>

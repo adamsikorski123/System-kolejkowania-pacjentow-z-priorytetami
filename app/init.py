@@ -1,7 +1,7 @@
 import time # Używane do zarządzania czasem, np. do obliczania czasu oczekiwania i czasu obsługi pacjentów
 import threading # Używane do synchronizacji dostępu do wspólnych zasobów (np. listy pacjentów) oraz do uruchamiania generatora pacjentów w osobnym wątku
 import os # Używane do zarządzania ścieżkami do plików bazy danych
-from flask import Flask, jsonify, redirect, render_template, url_for, request, session # Używane do obsługi żądań HTTP, zarządzania sesjami i renderowania szablonów HTML
+from flask import Flask, jsonify, redirect, render_template, url_for, request, session, Response # Używane do obsługi żądań HTTP, zarządzania sesjami i renderowania szablonów HTML
 from flask_restful import Resource, Api # Używane do tworzenia API RESTful
 from flask.views import MethodView # Używane do tworzenia klas widoków obsługujących żądania HTTP
 from app.gen_patient import generate_next_patient_record # Używane do generowania losowych rekordów pacjentów
@@ -9,6 +9,7 @@ from app.priorities import get_service_time_for_priority # Używane do określan
 from .database import PatientDB # Używane do zarządzania bazą danych pacjentów i użytkowników
 from .login import init_auth # Używane do inicjalizacji mechanizmu uwierzytelniania użytkowników
 from .latencja import LatencyJitterMeter # Używane do pomiaru i raportowania metryk związanych z opóźnieniami API i czasem oczekiwania w kolejce
+from .wykresy import generate_latency_png, generate_jitter_png # Używane do generowania wykresów PNG serwowanych przez endpointy /api/charts/
 from uuid import uuid4 # Używane do generowania unikalnych kluczy sesji dla operatorów
 
 
@@ -524,3 +525,22 @@ def toggle_protection():
 @app.route('/api/metrics/latency', methods=['GET'])
 def latency_metrics():
     return jsonify(latency_meter.snapshot())
+
+# Endpointy zwracające wykresy PNG generowane na bieżąco z historii pomiarów.
+# Są odpytywane przez JavaScript co kilka sekund i wyświetlane w przeglądarce.
+# Jeśli za mało danych (< MIN_POINTS w wykresy.py), zwracany jest placeholder z komunikatem.
+@app.route('/api/charts/admit/latency')
+def chart_admit_latency():
+    return Response(generate_latency_png(latency_meter.get_admit_history(), "Przyjęcie pacjenta"), mimetype='image/png')
+
+@app.route('/api/charts/admit/jitter')
+def chart_admit_jitter():
+    return Response(generate_jitter_png(latency_meter.get_admit_history(), "Przyjęcie pacjenta"), mimetype='image/png')
+
+@app.route('/api/charts/priority/latency')
+def chart_priority_latency():
+    return Response(generate_latency_png(latency_meter.get_prio_history(), "Zmiana priorytetu"), mimetype='image/png')
+
+@app.route('/api/charts/priority/jitter')
+def chart_priority_jitter():
+    return Response(generate_jitter_png(latency_meter.get_prio_history(), "Zmiana priorytetu"), mimetype='image/png')

@@ -51,6 +51,13 @@ class LatencyJitterMeter:
         with self._lock:
             self._race_condition_count += max(1, int(occurrences))
 
+    # Metody zwracające pełną historię pomiarów jako listę (do generowania wykresów).
+    def get_admit_history(self) -> list[float]:
+        return list(self._admit_latency_ms)
+
+    def get_prio_history(self) -> list[float]:
+        return list(self._prio_latency_ms)
+
     # Metoda do tworzenia migawki aktualnych wartości opóźnień i czasu oczekiwania.
     def snapshot(self):
         #with self._lock:
