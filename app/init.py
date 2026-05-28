@@ -153,8 +153,18 @@ class PatientRegistry:
                         patient = p
                         break
                 if patient:
+                    # Blokada per-pacjent: przez 1 sekundę po zmianie inny operator nie może
+                    # zmienić priorytetu tego samego pacjenta. Ten sam operator może zmieniać
+                    # wielokrotnie bez ograniczeń (locked_by == user_key).
+                    locked_until = patient.get("_priority_locked_until", 0.0)
+                    locked_by = patient.get("_priority_locked_by", "")
+                    if time.time() < locked_until and locked_by != user_key:
+                        return "conflict"
+
                     patient["priority"] = new_priority
                     patient["_last_writer"] = user_key
+                    patient["_priority_locked_until"] = time.time() + 1.0  # blokada na 1 sekundę
+                    patient["_priority_locked_by"] = user_key
                     patient["service_time_seconds"] = get_service_time_for_priority(new_priority)
                     self._sort_patients()
                     return True
