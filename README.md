@@ -341,7 +341,7 @@ Zmiana priorytetu:
 
 - Dodatkowo w UI aktualizowane są metryki latencji/jitteru dla `admit` i `priority` oraz licznik `Race condition`, co pozwala obserwować efekt zmian na żywo.
 
-Metryki:
+**Metryki:**
 Przyj. latencja avg	251.41 ms
 Przyj. jitter	14.34 ms
 Przyj. latencja last	10.70 ms
@@ -349,3 +349,30 @@ Prio latencja avg	254.91 ms
 Prio jitter	16.96 ms
 Prio latencja last	8.85 ms
 Race condition	19
+
+
+**Wykresy:**
+
+Przyjęcie pacjenta bez ochrony:
+
+<p align="center">
+  <img src="app/static/img/admit_bez.png" alt="admit_bez" height="800"/>
+</p>
+
+Przyjęcie pacjenta z ochroną:
+
+<p align="center">
+  <img src="app/static/img/admit_z.png" alt="admit_bez" height="800"/>
+</p>
+
+Zmiana priorytetu bez ochrony:
+
+<p align="center">
+  <img src="app/static/img/prio_bez.png" alt="admit_bez" height="800"/>
+</p>
+
+Zmiana priorytetu z ochroną:
+
+<p align="center">
+  <img src="app/static/img/prio_z.png" alt="admit_bez" height="800"/>
+</p>
