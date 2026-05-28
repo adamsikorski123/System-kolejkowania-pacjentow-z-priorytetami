@@ -241,7 +241,7 @@ Interpretacja wyników:
 Wyniki: tryb=admit, wątki=2 
 
 Łączna liczba rund:             10  
-Wszyscy 200 (race condition):       0  ← wyścig niezauważony  
+Wszyscy 200:       0  ← wyścig niezauważony  
 Przynajmniej jeden 409:            10  ← wykryty wyścig  
 
 **Zmiana priorytetu:**
@@ -249,7 +249,7 @@ Przynajmniej jeden 409:            10  ← wykryty wyścig
 Wyniki: tryb=priority, wątki=2  
 
 Łączna liczba rund:              10  
-Wszyscy 200 (race condition):      1  ← wyścig niezauważony  
+Wszyscy 200:      1  ← wyścig niezauważony  
 Przynajmniej jeden 409:            9  ← wykryty wyścig  
 
 - **Po poprawce / przy włączonej ochronie**: stabilniejszy, deterministyczny przebieg operacji (mniej konfliktów logicznych).
@@ -259,7 +259,7 @@ Przynajmniej jeden 409:            9  ← wykryty wyścig
 Wyniki: tryb=admit, wątki=2
 
 Łączna liczba rund:              10  
-Wszyscy 200 (race condition):     10  ← wyścig niezauważony  
+Wszyscy 200:     10  ← wyścig niezauważony  
 Przynajmniej jeden 409:            0  ← wykryty wyścig  
   
 **Zmiana priorytetu:**
@@ -267,7 +267,7 @@ Przynajmniej jeden 409:            0  ← wykryty wyścig
 Wyniki: tryb=priority, wątki=2
 
 Łączna liczba rund:              10  
-Wszyscy 200 (race condition):     10  ← wyścig niezauważony  
+Wszyscy 200:     10  ← wyścig niezauważony  
 Przynajmniej jeden 409:            0  ← wykryty wyścig  
 
 - Dodatkowo w UI aktualizowane są metryki latencji/jitteru dla `admit` i `priority` oraz licznik `Race condition`, co pozwala obserwować efekt zmian na żywo.
