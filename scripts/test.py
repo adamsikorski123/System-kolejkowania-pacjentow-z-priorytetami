@@ -15,7 +15,7 @@ USER_ACCOUNTS = [
 ]
 
 TEST_ROUNDS        = 10
-TEST_MODE          = "priority"   # "admit" — przyjęcie pacjenta | "priority" — zmiana priorytetu
+TEST_MODE          = "admit"   # "admit" — przyjęcie pacjenta | "priority" — zmiana priorytetu
 THREADS_PER_ROUND  = 2 # liczba równoczesnych żądań w każdej rundzie (minimum 2)
 PRIORITY_PATIENT_ID = None
 
