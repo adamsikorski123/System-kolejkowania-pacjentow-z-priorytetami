@@ -1,14 +1,14 @@
-import threading
-import time
-import random
-import requests
+import threading # do tworzenia wątków symulujących jednoczesne żądania
+import time # do mierzenia czasu i implementacji timeoutów
+import random # do losowego wyboru pacjenta w testach priorytetu
+import requests # do wykonywania żądań HTTP do API kolejki
 
 # ── Konfiguracja ─────────────────────────────────────────────────────────────
 
 BASE_URL     = "http://localhost:5000"
 
 # Konta użytkowników — każdy wątek używa osobnego konta.
-# Liczba wpisów musi być >= THREADS_PER_ROUND.
+
 USER_ACCOUNTS = [
     ("admin",  "admin"),
     ("197570", "kti"),
@@ -16,11 +16,10 @@ USER_ACCOUNTS = [
 
 TEST_ROUNDS        = 10
 TEST_MODE          = "priority"   # "admit" — przyjęcie pacjenta | "priority" — zmiana priorytetu
-THREADS_PER_ROUND  = 2
+THREADS_PER_ROUND  = 2 # liczba równoczesnych żądań w każdej rundzie (minimum 2)
 PRIORITY_PATIENT_ID = None
 
 # Wymuszanie częstszych RC dla admit:
-FORCE_RELOGIN_EACH_ROUND_IN_ADMIT = False  # było True; teraz niepotrzebne
 ROUND_PATIENT_WAIT_TIMEOUT_S = 15.0
 MIN_PATIENTS_FOR_ADMIT_ROUND = 1
 WAIT_FOR_COOLDOWN_BEFORE_ADMIT_ROUND = True
@@ -28,6 +27,7 @@ COOLDOWN_WAIT_TIMEOUT_S = 60.0
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+# Funkcja logowania — zwraca sesję z zalogowanym użytkownikiem
 def login(username: str, password: str) -> requests.Session | None:
     session = requests.Session()
     try:
@@ -45,52 +45,51 @@ def login(username: str, password: str) -> requests.Session | None:
         print(f"  [BŁĄD] Nie można połączyć się z {BASE_URL} — czy serwer jest uruchomiony?")
         return None
 
-
+# Funkcja wysyła dummy GET żeby nawiązać połączenie TCP przed testem, co eliminuje różnicę czasu pierwszego żądania.
 def warmup(session: requests.Session):
-    """Wysyła dummy GET żeby nawiązać połączenie TCP przed testem."""
     try:
         session.get(f"{BASE_URL}/api/queue/state", timeout=5)
     except Exception:
         pass
 
-
+# Funkcja do przyjęcia pacjenta — zwraca status code odpowiedzi HTTP (200, 409, itp.) lub -1 w przypadku błędu połączenia
 def admit_patient(session: requests.Session) -> int:
     try:
-        resp = session.post(
-            f"{BASE_URL}/api/queue/admit",
-            headers={"Content-Type": "application/json"},
-            timeout=10,
+        resp = session.post( 
+            f"{BASE_URL}/api/queue/admit", # żądanie HTTP GET do API - endpoint do przyjęcia pacjenta
+            headers={"Content-Type": "application/json"}, # nagłówek informujący, że dane są w formacie JSON
+            timeout=5, # timeout 10 sekund, aby dać szansę na wykrycie sytuacji wyścigu, zamiast szybkiego błędu połączenia
         )
         return resp.status_code
     except Exception as e:
         print(f"  [WYJĄTEK] {e}")
         return -1
 
-
+# Funkcja do zmiany priorytetu pacjenta — zwraca status code odpowiedzi HTTP (200, 409, itp.) lub -1 w przypadku błędu połączenia
 def change_priority(session: requests.Session, patient_id: int, priority: int) -> int:
     try:
         resp = session.post(
-            f"{BASE_URL}/api/queue/change-priority",
-            json={"patient_id": patient_id, "priority": priority},
-            timeout=10,
+            f"{BASE_URL}/api/queue/change-priority", # endpoint do zmiany priorytetu
+            json={"patient_id": patient_id, "priority": priority}, # dane JSON z ID pacjenta i nowym priorytetem
+            timeout=5, # timeout 10 sekund, aby dać szansę na wykrycie sytuacji wyścigu, zamiast szybkiego błędu połączenia
         )
         return resp.status_code
     except Exception as e:
         print(f"  [WYJĄTEK] {e}")
         return -1
 
-
+# Funkcja do pobrania listy ID pacjentów aktualnie w kolejce (z API) — zwraca listę ID lub pustą listę w przypadku błędu
 def get_patient_ids(session: requests.Session, limit: int | None = None) -> list[int]:
     try:
-        resp = session.get(f"{BASE_URL}/api/queue/state", timeout=5)
+        resp = session.get(f"{BASE_URL}/api/queue/state", timeout=5) # endpoint do pobrania stanu kolejki, który zawiera listę pacjentów
         data = resp.json()
         patients = data.get("patients", [])
-        ids = [p.get("id") for p in patients if p.get("id") is not None]
+        ids = [p.get("id") for p in patients if p.get("id") is not None] # wyciągnięcie listy ID pacjentów z odpowiedzi API
         return ids[:limit] if isinstance(limit, int) and limit > 0 else ids
     except Exception:
         return []
 
-
+# Funkcja do oczekiwania na pojawienie się pacjentów w API — zwraca listę ID pacjentów lub pustą listę, jeśli timeout minął
 def wait_for_patient_ids(session: requests.Session, min_count: int = 1, timeout_s: float = 10.0) -> list[int]:
     t0 = time.time()
     while time.time() - t0 < timeout_s:
@@ -100,19 +99,7 @@ def wait_for_patient_ids(session: requests.Session, min_count: int = 1, timeout_
         time.sleep(0.5)
     return get_patient_ids(session)
 
-
-def get_first_patient_id(session: requests.Session) -> int | None:
-    try:
-        resp = session.get(f"{BASE_URL}/api/queue/state", timeout=5)
-        data = resp.json()
-        patients = data.get("patients", [])
-        if patients:
-            return patients[0].get("id")
-    except Exception:
-        pass
-    return None
-
-
+# Funkcja do pobrania czasu oczekiwania w kolejce z API — zwraca czas w sekundach lub 0.0 w przypadku błędu
 def get_session_wait_time(session: requests.Session) -> float:
     try:
         resp = session.get(f"{BASE_URL}/api/queue/state", timeout=5)
@@ -121,7 +108,7 @@ def get_session_wait_time(session: requests.Session) -> float:
     except Exception:
         return 0.0
 
-
+# Funkcja do oczekiwania aż wszystkie sesje będą gotowe do przyjęcia pacjenta (wait_time <= 0) — zwraca True jeśli gotowe, False jeśli timeout minął
 def wait_until_sessions_ready_for_admit(
     sessions: list[requests.Session],
     timeout_s: float = 60.0,
@@ -134,17 +121,17 @@ def wait_until_sessions_ready_for_admit(
         time.sleep(0.2)
     return False
 
-
+# Funkcja do uruchomienia jednej rundy testowej — każdy wątek wykonuje jednocześnie żądanie admit lub change-priority, a wyniki (statusy) są zbierane w liście results
 def run_round(
     sessions: list,
     mode: str,
-    patient_id: int | None,
     results: list,
     barrier: threading.Barrier,
     target_patient_ids: list[int] | None = None,
 ):
     statuses = [-1] * len(sessions)
-
+    
+    # Każdy wątek czeka na barierze, aż wszyscy będą gotowi, a następnie wykonuje swoje żądanie (admit lub change-priority) i zapisuje status odpowiedzi HTTP w liście statuses.
     def make_task(idx, session):
         def task():
             try:
@@ -155,7 +142,7 @@ def run_round(
                 return
 
             if mode == "admit":
-                statuses[idx] = admit_patient(session)
+                statuses[idx] = admit_patient(session) # wykonanie żądania admit i zapisanie statusu odpowiedzi
             else:
                 if not target_patient_ids:
                     statuses[idx] = -1
@@ -165,15 +152,16 @@ def run_round(
                 statuses[idx] = change_priority(session, selected_patient_id, priority)
         return task
 
+    # Tworzenie i uruchamianie wątków dla tej rundy
     threads = [threading.Thread(target=make_task(i, s), daemon=True) for i, s in enumerate(sessions)]
     for t in threads:
         t.start()
     for t in threads:
         t.join()
 
-    results.append(tuple(statuses))
+    results.append(tuple(statuses)) # zapisanie wyników tej rundy (statusów odpowiedzi) do listy results
 
-
+# Funkcja do podsumowania wyników testu — zlicza ile rund zakończyło się wszystkimi 200, ile miało przynajmniej jeden 409, i ile miało błędy połączenia (-1), a następnie wypisuje wnioski
 def summarize(results: list, label: str):
     print(f"\n{'─' * 50}")
     print(f"  Wyniki: {label}")
@@ -189,14 +177,7 @@ def summarize(results: list, label: str):
     print(f"  Błędy połączenia:                {any_error:>3}")
     print(f"{'─' * 50}")
 
-    if any_409 == 0 and all_ok > 0:
-        print("  WNIOSEK: Brak wykrytych konfliktów — możliwy race condition!")
-    elif any_409 == len(results):
-        print("  WNIOSEK: Każda runda wykryła konflikt — ochrona działa poprawnie.")
-    else:
-        print(f"  WNIOSEK: Konflikty wykryto w {any_409}/{len(results)} rundach.")
-
-
+# Funkcja do tworzenia sesji dla podanych kont — zwraca listę sesji lub pustą listę w przypadku błędu
 def create_sessions(accounts: list[tuple[str, str]]) -> list[requests.Session]:
     sessions = []
     for i, (login_name, password) in enumerate(accounts, 1):
@@ -208,7 +189,7 @@ def create_sessions(accounts: list[tuple[str, str]]) -> list[requests.Session]:
         sessions.append(sess)
     return sessions
 
-
+# Główna funkcja testu — loguje użytkowników, przygotowuje sesje, a następnie uruchamia wielokrotne rundy testowe, zbierając i podsumowując wyniki.
 def main():
     print("=" * 50)
     print("  Test race condition — System Kolejkowania")
@@ -246,15 +227,6 @@ def main():
         target_ids = None
 
         if TEST_MODE == "admit":
-            if FORCE_RELOGIN_EACH_ROUND_IN_ADMIT:
-                for s in sessions:
-                    s.close()
-                sessions = create_sessions(accounts)
-                if not sessions:
-                    results.append(tuple([-1] * THREADS_PER_ROUND))
-                    print(f"  Runda {i+1:>2}: błąd relogowania  ✗")
-                    continue
-
             if WAIT_FOR_COOLDOWN_BEFORE_ADMIT_ROUND:
                 ready = wait_until_sessions_ready_for_admit(
                     sessions,
@@ -287,7 +259,13 @@ def main():
                 selected_id = random.choice(ids)
                 target_ids = [selected_id]
 
-        run_round(sessions, TEST_MODE, patient_id, results, barrier, target_patient_ids=target_ids)
+        run_round(
+            sessions,
+            TEST_MODE,
+            results,
+            barrier,
+            target_patient_ids=target_ids,
+        )
         statuses = results[-1]
         has_409 = 409 in statuses
         icon = "✗" if has_409 else "✓"

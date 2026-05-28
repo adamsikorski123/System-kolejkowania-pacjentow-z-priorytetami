@@ -12,7 +12,7 @@
 |---|---|
 | **Przedmiot** | RAIM – Rozwój aplikacji internetowych w medycynie (2025/2026) |
 | **Temat** | Temat 2 – System kolejkowania pacjentów z priorytetami |
-| **Etap** | Etap 1 – Implementacja bazowa (kolejka FIFO) |
+| **Etap** | Etap 3 – Współbieżność i analiza błędów |
 | **Rok studiów** | 3|
 | **Prowadzący** | dr inż. Anna Jezierska |
 | **Autorzy** | Adam Sikorsi, Mateusz Grochowalski |
@@ -176,9 +176,10 @@ Istotnym uzupełnieniem pomiaru latencji jest pomiar jitteru, czyli zmienności 
 
 ## 5. Omówienie zagadnień współbieżności (race condition)
 
-### 5.1 Czym jest współbieżność
+### 5.1 Współbieżność
 
 Współbieżność oznacza wykonywanie wielu operacji „w tym samym czasie” (np. przez wiele wątków lub wielu użytkowników systemu).  
+
 W aplikacjach webowych oznacza to, że serwer może obsługiwać kilka żądań jednocześnie, które odwołują się do tych samych danych.
 
 ### 5.2 Czym jest race condition
@@ -186,7 +187,7 @@ W aplikacjach webowych oznacza to, że serwer może obsługiwać kilka żądań 
 Race condition (wyścig) występuje wtedy, gdy wynik końcowy zależy od kolejności wykonania równoległych operacji na wspólnym zasobie.  
 Jeżeli nie ma poprawnej synchronizacji, dwa żądania mogą odczytać ten sam stan „przed zmianą” i zapisać kolidujące wyniki.
 
-### 5.3 Jak race condition wygląda w naszym projekcie
+### 5.3 Jak race condition wygląda u nas projekcie
 
 W projekcie występują dwa główne miejsca podatne na wyścig:
 
@@ -209,20 +210,136 @@ Dzięki temu łatwo odtworzyć konflikt i obserwować jego skutki w API i metryk
 W projekcie zastosowano dwa podejścia:
 
 - **Blokada (lock)**  
-  Przy włączonej ochronie operacje wykonywane są w sekcji krytycznej, co serializuje dostęp do kolejki i ogranicza konflikty.
+  Przy włączonej ochronie operacje wykonywane są w sekcji krytycznej, co serializuje dostęp (operacje nie idą jednocześnie, tylko jedna po drugiej) do kolejki i ogranicza konflikty.
 
 - **Wykrywanie konfliktu zapisu (wariant wersjonowania logicznego, tryb bez ochrony)**  
+  Ten mechanizm jest używany przede wszystkim w trybie **bez blokady** (gdy celowo dopuszczamy współbieżny zapis dla demonstracji race condition).  
   Dla zmiany priorytetu wykorzystywany jest znacznik ostatniego autora (`_last_writer`) oraz porównanie stanu przed/po (`old_priority` vs bieżący `priority`).  
   Jeśli w międzyczasie inny operator zmieni rekord, backend zwraca `"conflict"`, a endpoint mapuje to na HTTP `409`.
+
+- **Relacja lock vs wykrywanie konfliktu**  
+  Przy **włączonej blokadzie (lock)** operacje są serializowane (jedna po drugiej), więc dwa zapisy tego samego pacjenta nie wykonują się równocześnie i konflikt zwykle nie powstaje.  
+  Przy **wyłączonej blokadzie** możliwa jest równoległa modyfikacja - wtedy konflikt jest wykrywany logicznie przez `_last_writer` i porównanie stanu.
 
 ### 5.6 Porównanie przed i po poprawce (test)
 
 Do porównania używany jest skrypt `test.py`, który:
-- loguje kilku użytkowników,
+- loguje dwóch użytkowników,
 - uruchamia równoczesne żądania w rundach (`admit` albo `priority`),
-- zbiera statusy odpowiedzi (`200`, `409`, `-1`) i podsumowanie.
+- zbiera statusy odpowiedzi (`200`, `409`) i podsumowanie.
+  `200` - żądanie zostało obsłużone poprawnie przez API.
+  `409` - Conflict (konflikt współbieżności, race condition).
 
 Interpretacja wyników:
 - **Przed poprawką / przy wyłączonej ochronie**: częstsze konflikty i niestabilność wyniku (więcej sytuacji wyścigu).
+
+Przyjęcie pacjenta:
+
+==================================================
+  Test race condition — System Kolejkowania
+==================================================
+
+[1/4] Logowanie 2 użytkowników...
+      [1] 'admin'...
+      [2] '197570'...
+[2/4] Pre-warm połączeń TCP (eliminuje różnicę czasu pierwszego żądania)...
+      Gotowe.
+[3/4] Tryb: ADMIT, wątków na rundę: 2, rund: 10
+[4/4] Uruchamiam 10 rund jednoczesnych żądań...
+
+  Runda  1: u1=409  u2=200  ✗
+  Runda  2: u1=200  u2=409  ✗
+  Runda  3: u1=409  u2=200  ✗
+  Runda  4: u1=200  u2=409  ✗
+  Runda  5: u1=409  u2=200  ✗
+  Runda  6: u1=200  u2=409  ✗
+  Runda  7: u1=200  u2=409  ✗
+  Runda  8: u1=200  u2=409  ✗
+  Runda  9: u1=409  u2=200  ✗
+  Runda 10: u1=409  u2=200  ✗
+
+──────────────────────────────────────────────────
+  Wyniki: tryb=admit, wątki=2
+──────────────────────────────────────────────────
+  Łączna liczba rund:              10
+  Wszyscy 200 (race condition):      0  ← wyścig niezauważony
+  Przynajmniej jeden 409:           10  ← wykryty wyścig
+
+Zmiana priorytetu:
+
+[4/4] Uruchamiam 10 rund jednoczesnych żądań...
+
+  Runda  1: u1=200  u2=409  target=4  ✗
+  Runda  2: u1=200  u2=409  target=3  ✗
+  Runda  3: u1=409  u2=200  target=5  ✗
+  Runda  4: u1=409  u2=200  target=7  ✗
+  Runda  5: u1=200  u2=409  target=7  ✗
+  Runda  6: u1=409  u2=200  target=9  ✗
+  Runda  7: u1=409  u2=200  target=7  ✗
+  Runda  8: u1=200  u2=409  target=10  ✗
+  Runda  9: u1=200  u2=200  target=9  ✓
+  Runda 10: u1=200  u2=409  target=12  ✗
+
+──────────────────────────────────────────────────
+  Wyniki: tryb=priority, wątki=2
+──────────────────────────────────────────────────
+  Łączna liczba rund:              10
+  Wszyscy 200 (race condition):      1  ← wyścig niezauważony
+  Przynajmniej jeden 409:            9  ← wykryty wyścig
+
 - **Po poprawce / przy włączonej ochronie**: stabilniejszy, deterministyczny przebieg operacji (mniej konfliktów logicznych).
+
+Przyjęcie pacjenta:
+
+[4/4] Uruchamiam 10 rund jednoczesnych żądań...
+
+  Runda  1: u1=200  u2=200  ✓
+  Runda  2: u1=200  u2=200  ✓
+  Runda  3: u1=200  u2=200  ✓
+  Runda  4: u1=200  u2=200  ✓
+  Runda  5: u1=200  u2=200  ✓
+  Runda  6: u1=200  u2=200  ✓
+  Runda  7: u1=200  u2=200  ✓
+  Runda  8: u1=200  u2=200  ✓
+  Runda  9: u1=200  u2=200  ✓
+  Runda 10: u1=200  u2=200  ✓
+
+──────────────────────────────────────────────────
+  Wyniki: tryb=admit, wątki=2
+──────────────────────────────────────────────────
+  Łączna liczba rund:              10
+  Wszyscy 200 (race condition):     10  ← wyścig niezauważony
+  Przynajmniej jeden 409:            0  ← wykryty wyścig
+
+Zmiana priorytetu:
+
+[4/4] Uruchamiam 10 rund jednoczesnych żądań...
+
+  Runda  1: u1=200  u2=200  target=5  ✓
+  Runda  2: u1=200  u2=200  target=33  ✓
+  Runda  3: u1=200  u2=200  target=22  ✓
+  Runda  4: u1=200  u2=200  target=113  ✓
+  Runda  5: u1=200  u2=200  target=172  ✓
+  Runda  6: u1=200  u2=200  target=132  ✓
+  Runda  7: u1=200  u2=200  target=129  ✓
+  Runda  8: u1=200  u2=200  target=32  ✓
+  Runda  9: u1=200  u2=200  target=129  ✓
+  Runda 10: u1=200  u2=200  target=160  ✓
+
+──────────────────────────────────────────────────
+  Wyniki: tryb=priority, wątki=2
+──────────────────────────────────────────────────
+  Łączna liczba rund:              10
+  Wszyscy 200 (race condition):     10  ← wyścig niezauważony
+  Przynajmniej jeden 409:            0  ← wykryty wyścig
+
 - Dodatkowo w UI aktualizowane są metryki latencji/jitteru dla `admit` i `priority` oraz licznik `Race condition`, co pozwala obserwować efekt zmian na żywo.
+
+Metryki:
+Przyj. latencja avg	251.41 ms
+Przyj. jitter	14.34 ms
+Przyj. latencja last	10.70 ms
+Prio latencja avg	254.91 ms
+Prio jitter	16.96 ms
+Prio latencja last	8.85 ms
+Race condition	19
