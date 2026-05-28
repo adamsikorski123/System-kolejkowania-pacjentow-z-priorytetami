@@ -222,9 +222,6 @@ W projekcie zastosowano dwa podejścia:
   Dla zmiany priorytetu wykorzystywany jest znacznik ostatniego autora (`_last_writer`) oraz porównanie stanu przed/po (`old_priority` vs bieżący `priority`).  
   Jeśli w międzyczasie inny operator zmieni rekord, backend zwraca `"conflict"`, a endpoint mapuje to na HTTP `409`.
 
-- **Relacja lock vs wykrywanie konfliktu**  
-  Przy **włączonej blokadzie (lock)** operacje są serializowane (jedna po drugiej), więc dwa zapisy tego samego pacjenta nie wykonują się równocześnie i konflikt zwykle nie powstaje.  
-  Przy **wyłączonej blokadzie** możliwa jest równoległa modyfikacja - wtedy konflikt jest wykrywany logicznie przez `_last_writer` i porównanie stanu.
 
 ### 5.6 Porównanie przed i po poprawce (test)
 
