@@ -45,7 +45,7 @@ def login(username: str, password: str) -> requests.Session | None:
         print(f"  [BŁĄD] Nie można połączyć się z {BASE_URL} — czy serwer jest uruchomiony?")
         return None
 
-# Funkcja wysyła dummy GET żeby nawiązać połączenie TCP przed testem, co eliminuje różnicę czasu pierwszego żądania.
+# Funkcja wysyła dummy(testowe) GET żeby nawiązać połączenie TCP przed testem, co eliminuje różnicę czasu pierwszego żądania(bo pierwszy request może mieć opóźnienie).
 def warmup(session: requests.Session):
     try:
         session.get(f"{BASE_URL}/api/queue/state", timeout=5)
@@ -58,7 +58,7 @@ def admit_patient(session: requests.Session) -> int:
         resp = session.post( 
             f"{BASE_URL}/api/queue/admit", # żądanie HTTP GET do API - endpoint do przyjęcia pacjenta
             headers={"Content-Type": "application/json"}, # nagłówek informujący, że dane są w formacie JSON
-            timeout=5, # timeout 10 sekund, aby dać szansę na wykrycie sytuacji wyścigu, zamiast szybkiego błędu połączenia
+            timeout=5, # timeout 5 sekund, aby dać szansę na wykrycie sytuacji wyścigu, zamiast szybkiego błędu połączenia
         )
         return resp.status_code
     except Exception as e:
@@ -71,7 +71,7 @@ def change_priority(session: requests.Session, patient_id: int, priority: int) -
         resp = session.post(
             f"{BASE_URL}/api/queue/change-priority", # endpoint do zmiany priorytetu
             json={"patient_id": patient_id, "priority": priority}, # dane JSON z ID pacjenta i nowym priorytetem
-            timeout=5, # timeout 10 sekund, aby dać szansę na wykrycie sytuacji wyścigu, zamiast szybkiego błędu połączenia
+            timeout=5, # timeout 5 sekund, aby dać szansę na wykrycie sytuacji wyścigu, zamiast szybkiego błędu połączenia
         )
         return resp.status_code
     except Exception as e:

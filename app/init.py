@@ -163,7 +163,7 @@ class PatientRegistry:
 
                     patient["priority"] = new_priority
                     patient["_last_writer"] = user_key
-                    patient["_priority_locked_until"] = time.time() + 1.0  # blokada na 1 sekundę
+                    patient["_priority_locked_until"] = time.time() + 2.0  # blokada na 2 sekundy
                     patient["_priority_locked_by"] = user_key
                     patient["service_time_seconds"] = get_service_time_for_priority(new_priority)
                     self._sort_patients()
