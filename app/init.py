@@ -79,6 +79,8 @@ class PatientRegistry:
             self._user_states[user_key] = state
         return state
 
+
+    #!!!! RACE CONDITION DEMONSTRATION
     # Metoda przenosząca pierwszego pacjenta z kolejki do pola 'current_patient'. Sprawdza, czy minął odpowiedni czas od ostatniego przyjęcia pacjenta (na podstawie czasu obsługi aktualnego pacjenta) i jeśli tak, to przenosi pierwszego pacjenta z listy oczekujących do pola 'current_patient' oraz aktualizuje czas ostatniego przyjęcia.
     def admit_patient(self, user_key: str):
         current_time = time.time()
@@ -137,7 +139,7 @@ class PatientRegistry:
         self._patients = []
         self._user_states = {}
 
-    #!!!! WSPÓŁBIEŻNOŚĆ
+    #!!!! RACE CONDITION DEMONSTRATION
     # Metoda do zmiany priorytetu pacjenta w kolejce i przesunięcia go na odpowiednią pozycję
     def change_patient_priority(self, patient_id: int, new_priority: int, user_key: str = "") -> bool:
         if not 1 <= new_priority <= 5:
