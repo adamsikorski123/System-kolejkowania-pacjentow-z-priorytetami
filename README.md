@@ -40,8 +40,9 @@ W środowisku szpitalnym, a sczególnie w izbach przyjęć (SOR), poradniach i o
 
 Niniejszy projekt symuluje system kolejkowania pacjentów oparty na priorytetach klinicznych, który w kolejnych etapach zostanie rozszerzony o race condition i mechanizm aging.
 
-**Etap 1** implementuje podstawowy wariant kolejki **FIFO** za pomocą losowej generacji pacjentów (według rozkładu Poissona) i obsługi przez operatora.
-**Etap 2** Dynamiczne zmiany **priorytetów** przez wielu operatorów.
+**Etap 1** implementuje podstawowy wariant kolejki **FIFO** za pomocą losowej generacji pacjentów (według rozkładu Poissona) i obsługi przez operatora.  
+**Etap 2** Dynamiczne zmiany **priorytetów** przez wielu operatorów.  
+**Etap 3** Wymuszenie race condition i implementacja mechanizmu blokady lub wersjonowania.
 
 ### 1.2 Określenie użytkowników systemu
 
