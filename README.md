@@ -241,54 +241,16 @@ Interpretacja wyników:
 
 Przyjęcie pacjenta:
 
-==================================================
-  Test race condition — System Kolejkowania
-==================================================
-
-[1/4] Logowanie 2 użytkowników...
-      [1] 'admin'...
-      [2] '197570'...
-[2/4] Pre-warm połączeń TCP (eliminuje różnicę czasu pierwszego żądania)...
-      Gotowe.
-[3/4] Tryb: ADMIT, wątków na rundę: 2, rund: 10
-[4/4] Uruchamiam 10 rund jednoczesnych żądań...
-
-  Runda  1: u1=409  u2=200  ✗
-  Runda  2: u1=200  u2=409  ✗
-  Runda  3: u1=409  u2=200  ✗
-  Runda  4: u1=200  u2=409  ✗
-  Runda  5: u1=409  u2=200  ✗
-  Runda  6: u1=200  u2=409  ✗
-  Runda  7: u1=200  u2=409  ✗
-  Runda  8: u1=200  u2=409  ✗
-  Runda  9: u1=409  u2=200  ✗
-  Runda 10: u1=409  u2=200  ✗
-
-──────────────────────────────────────────────────
   Wyniki: tryb=admit, wątki=2
-──────────────────────────────────────────────────
+
   Łączna liczba rund:              10
   Wszyscy 200 (race condition):      0  ← wyścig niezauważony
   Przynajmniej jeden 409:           10  ← wykryty wyścig
 
 Zmiana priorytetu:
 
-[4/4] Uruchamiam 10 rund jednoczesnych żądań...
-
-  Runda  1: u1=200  u2=409  target=4  ✗
-  Runda  2: u1=200  u2=409  target=3  ✗
-  Runda  3: u1=409  u2=200  target=5  ✗
-  Runda  4: u1=409  u2=200  target=7  ✗
-  Runda  5: u1=200  u2=409  target=7  ✗
-  Runda  6: u1=409  u2=200  target=9  ✗
-  Runda  7: u1=409  u2=200  target=7  ✗
-  Runda  8: u1=200  u2=409  target=10  ✗
-  Runda  9: u1=200  u2=200  target=9  ✓
-  Runda 10: u1=200  u2=409  target=12  ✗
-
-──────────────────────────────────────────────────
   Wyniki: tryb=priority, wątki=2
-──────────────────────────────────────────────────
+
   Łączna liczba rund:              10
   Wszyscy 200 (race condition):      1  ← wyścig niezauważony
   Przynajmniej jeden 409:            9  ← wykryty wyścig
@@ -297,44 +259,16 @@ Zmiana priorytetu:
 
 Przyjęcie pacjenta:
 
-[4/4] Uruchamiam 10 rund jednoczesnych żądań...
-
-  Runda  1: u1=200  u2=200  ✓
-  Runda  2: u1=200  u2=200  ✓
-  Runda  3: u1=200  u2=200  ✓
-  Runda  4: u1=200  u2=200  ✓
-  Runda  5: u1=200  u2=200  ✓
-  Runda  6: u1=200  u2=200  ✓
-  Runda  7: u1=200  u2=200  ✓
-  Runda  8: u1=200  u2=200  ✓
-  Runda  9: u1=200  u2=200  ✓
-  Runda 10: u1=200  u2=200  ✓
-
-──────────────────────────────────────────────────
   Wyniki: tryb=admit, wątki=2
-──────────────────────────────────────────────────
+
   Łączna liczba rund:              10
   Wszyscy 200 (race condition):     10  ← wyścig niezauważony
   Przynajmniej jeden 409:            0  ← wykryty wyścig
 
 Zmiana priorytetu:
 
-[4/4] Uruchamiam 10 rund jednoczesnych żądań...
-
-  Runda  1: u1=200  u2=200  target=5  ✓
-  Runda  2: u1=200  u2=200  target=33  ✓
-  Runda  3: u1=200  u2=200  target=22  ✓
-  Runda  4: u1=200  u2=200  target=113  ✓
-  Runda  5: u1=200  u2=200  target=172  ✓
-  Runda  6: u1=200  u2=200  target=132  ✓
-  Runda  7: u1=200  u2=200  target=129  ✓
-  Runda  8: u1=200  u2=200  target=32  ✓
-  Runda  9: u1=200  u2=200  target=129  ✓
-  Runda 10: u1=200  u2=200  target=160  ✓
-
-──────────────────────────────────────────────────
   Wyniki: tryb=priority, wątki=2
-──────────────────────────────────────────────────
+
   Łączna liczba rund:              10
   Wszyscy 200 (race condition):     10  ← wyścig niezauważony
   Przynajmniej jeden 409:            0  ← wykryty wyścig
