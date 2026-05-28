@@ -212,6 +212,11 @@ W projekcie zastosowano dwa podejścia:
 - **Blokada (lock)**  
   Przy włączonej ochronie operacje wykonywane są w sekcji krytycznej, co serializuje dostęp (operacje nie idą jednocześnie, tylko jedna po drugiej) do kolejki i ogranicza konflikty.
 
+- **Cooldown po zmianie priorytetu (2 sekundy, przy włączonej ochronie)**  
+  Po udanej zmianie priorytetu system chwilowo blokuje kolejną zmianę tego samego rekordu.  
+  To celowy mechanizm ograniczający „przepychanie” jednego pacjenta przez wielu operatorów w tej samej chwili.  
+  Odpowiedź z API dla takiej blokady to **429** (cooldown/rate-limit), co **nie jest race condition**.
+
 - **Wykrywanie konfliktu zapisu (wariant wersjonowania logicznego, tryb bez ochrony)**  
   Ten mechanizm jest używany przede wszystkim w trybie **bez blokady** (gdy celowo dopuszczamy współbieżny zapis dla demonstracji race condition).  
   Dla zmiany priorytetu wykorzystywany jest znacznik ostatniego autora (`_last_writer`) oraz porównanie stanu przed/po (`old_priority` vs bieżący `priority`).  
@@ -226,9 +231,10 @@ W projekcie zastosowano dwa podejścia:
 Do porównania używany jest skrypt `test.py`, który:
 - loguje dwóch użytkowników,
 - uruchamia równoczesne żądania w rundach (`admit` albo `priority`),
-- zbiera statusy odpowiedzi (`200`, `409`) i podsumowanie.
-  `200` - żądanie zostało obsłużone poprawnie przez API.
-  `409` - Conflict (konflikt współbieżności, race condition).
+- zbiera statusy odpowiedzi (`200`, `409`, `429`) i podsumowanie.  
+  `200` - żądanie zostało obsłużone poprawnie przez API.  
+  `409` - Conflict (konflikt współbieżności, race condition).  
+  `429` - cooldown/rate-limit po zmianie priorytetu (mechanizm ochronny, **nie** race condition).
 
 Interpretacja wyników:
 - **Przed poprawką / przy wyłączonej ochronie**: częstsze konflikty i niestabilność wyniku (więcej sytuacji wyścigu).
