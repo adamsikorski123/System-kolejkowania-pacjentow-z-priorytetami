@@ -168,13 +168,14 @@ def summarize(results: list, label: str):
     print(f"{'─' * 50}")
 
     all_ok    = sum(1 for r in results if all(s == 200 for s in r))
-    any_409   = sum(1 for r in results if 409 in r)
+    any_409   = sum(1 for r in results if 409 in r)  # race condition
+    any_429   = sum(1 for r in results if 429 in r)  # cooldown 2s, NIE race
     any_error = sum(1 for r in results if -1 in r)
 
     print(f"  Łączna liczba rund:              {len(results)}")
-    print(f"  Wszyscy 200 (race condition):    {all_ok:>3}  ← wyścig niezauważony")
-    print(f"  Przynajmniej jeden 409:          {any_409:>3}  ← wykryty wyścig")
-    print(f"  Błędy połączenia:                {any_error:>3}")
+    print(f"  Wszyscy 200:                     {all_ok:>3}")
+    print(f"  Przynajmniej jeden 409 (race):   {any_409:>3}")
+    print(f"  Przynajmniej jeden 429 (cooldown): {any_429:>3}")
     print(f"{'─' * 50}")
 
 # Funkcja do tworzenia sesji dla podanych kont — zwraca listę sesji lub pustą listę w przypadku błędu
@@ -268,7 +269,8 @@ def main():
         )
         statuses = results[-1]
         has_409 = 409 in statuses
-        icon = "✗" if has_409 else "✓"
+        has_429 = 429 in statuses
+        icon = "✗" if has_409 else ("⏳" if has_429 else "✓")
         status_str = "  ".join(f"u{j+1}={s}" for j, s in enumerate(statuses))
         if TEST_MODE == "priority":
             print(f"  Runda {i+1:>2}: {status_str}  target={target_ids[0] if target_ids else None}  {icon}")

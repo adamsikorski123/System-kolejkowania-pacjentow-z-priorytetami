@@ -311,7 +311,7 @@
 				if (data?.race_condition_count !== undefined) {
 					syncRaceConditionCount(data.race_condition_count);
 				}
-				alert("RACE CONDITION: priorytet został już zmieniony przez innego operatora!");
+				alert("Inny użytkownik dokonał zmiany priorytetu");
 			} else {
 				alert("Błąd przy zmianie priorytetu pacjenta.");
 				location.reload();
@@ -349,7 +349,7 @@
 				if (data?.race_condition_count !== undefined) {
 					syncRaceConditionCount(data.race_condition_count);
 				}
-				alert("Priorytet został już zmieniony przez innego operatora!");
+				alert("Inny użytkownik dokonał zmiany priorytetu");
 			} else {
 				alert("Błąd przy zmianie priorytetu pacjenta.");
 				location.reload();

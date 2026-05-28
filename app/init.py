@@ -154,18 +154,14 @@ class PatientRegistry:
                         patient = p
                         break
                 if patient:
-                    # Blokada per-pacjent: przez 1 sekundę po zmianie inny operator nie może
-                    # zmienić priorytetu tego samego pacjenta. Ten sam operator może zmieniać
-                    # wielokrotnie bez ograniczeń (locked_by == user_key).
-                    locked_until = patient.get("_priority_locked_until", 0.0)
-                    locked_by = patient.get("_priority_locked_by", "")
-                    if time.time() < locked_until and locked_by != user_key:
-                        return "conflict"
+                    now = time.time()
+                    last_change_ts = float(patient.get("_last_priority_change_ts") or 0.0)
+                    if now - last_change_ts < 2.0:
+                        return "cooldown"  # to NIE jest race condition
 
                     patient["priority"] = new_priority
                     patient["_last_writer"] = user_key
-                    patient["_priority_locked_until"] = time.time() + 2.0  # blokada na 2 sekundy
-                    patient["_priority_locked_by"] = user_key
+                    patient["_last_priority_change_ts"] = now
                     patient["service_time_seconds"] = get_service_time_for_priority(new_priority)
                     self._sort_patients()
                     return True
@@ -481,6 +477,13 @@ def change_priority():
         return _respond({"success": False, "error": "Invalid patient_id or priority"}, 400)
 
     result = patient_registry.change_patient_priority(patient_id, new_priority, _get_request_user_key())
+
+    if result == "cooldown":
+        return _respond({
+            "success": False,
+            "cooldown": True,
+            "retry_after_s": 2.0,
+        }, 429)
 
     if result == "conflict":
         latency_meter.record_race_condition()
