@@ -201,7 +201,7 @@ W projekcie występują dwa główne miejsca podatne na wyścig:
 
 Do celów dydaktycznych race condition jest świadomie wzmacniany przez:
 - równoległe żądania (test wielowątkowy),
-- celowe opóźnienie (`time.sleep(0.5)`) w sekcjach krytycznych przy wyłączonej ochronie.
+- celowe opóźnienie (`time.sleep(0.5)`) w sekcjach krytycznych przy wyłączonej ochronie. Celowo poszerza okno krytyczne między odczytem a zapisem, więc drugi request ma większą szansę „wejść w środek” operacji.
 
 Dzięki temu łatwo odtworzyć konflikt i obserwować jego skutki w API i metrykach.
 
@@ -241,48 +241,39 @@ Interpretacja wyników:
 
 **Przyjęcie pacjenta:**
 
-  Wyniki: tryb=admit, wątki=2
+Wyniki: tryb=admit, wątki=2 
 
-  Łączna liczba rund:              10
-  Wszyscy 200 (race condition):      0  ← wyścig niezauważony
-  Przynajmniej jeden 409:           10  ← wykryty wyścig
+Łączna liczba rund:             10  
+Wszyscy 200 (race condition):       0  ← wyścig niezauważony  
+Przynajmniej jeden 409:            10  ← wykryty wyścig  
 
 **Zmiana priorytetu:**
 
-  Wyniki: tryb=priority, wątki=2
+Wyniki: tryb=priority, wątki=2  
 
-  Łączna liczba rund:              10
-  Wszyscy 200 (race condition):      1  ← wyścig niezauważony
-  Przynajmniej jeden 409:            9  ← wykryty wyścig
+Łączna liczba rund:              10  
+Wszyscy 200 (race condition):      1  ← wyścig niezauważony  
+Przynajmniej jeden 409:            9  ← wykryty wyścig  
 
 - **Po poprawce / przy włączonej ochronie**: stabilniejszy, deterministyczny przebieg operacji (mniej konfliktów logicznych).
 
 **Przyjęcie pacjenta:**
 
-  Wyniki: tryb=admit, wątki=2
+Wyniki: tryb=admit, wątki=2
 
-  Łączna liczba rund:              10
-  Wszyscy 200 (race condition):     10  ← wyścig niezauważony
-  Przynajmniej jeden 409:            0  ← wykryty wyścig
-
+Łączna liczba rund:              10  
+Wszyscy 200 (race condition):     10  ← wyścig niezauważony  
+Przynajmniej jeden 409:            0  ← wykryty wyścig  
+  
 **Zmiana priorytetu:**
 
-  Wyniki: tryb=priority, wątki=2
+Wyniki: tryb=priority, wątki=2
 
-  Łączna liczba rund:              10
-  Wszyscy 200 (race condition):     10  ← wyścig niezauważony
-  Przynajmniej jeden 409:            0  ← wykryty wyścig
+Łączna liczba rund:              10  
+Wszyscy 200 (race condition):     10  ← wyścig niezauważony  
+Przynajmniej jeden 409:            0  ← wykryty wyścig  
 
 - Dodatkowo w UI aktualizowane są metryki latencji/jitteru dla `admit` i `priority` oraz licznik `Race condition`, co pozwala obserwować efekt zmian na żywo.
-
-**Metryki:**
-Przyj. latencja avg	251.41 ms
-Przyj. jitter	14.34 ms
-Przyj. latencja last	10.70 ms
-Prio latencja avg	254.91 ms
-Prio jitter	16.96 ms
-Prio latencja last	8.85 ms
-Race condition	19
 
 
 **Wykresy:**
