@@ -570,4 +570,7 @@
 
 	refreshQueueState();
 	setInterval(refreshQueueState, 300);
+
+	// Tymczasowo wyłączone: odświeżanie wykresów z API (nie usuwamy, tylko komentujemy).
+	// setInterval(refreshCharts, 3000);
 })();

@@ -1,4 +1,3 @@
-
 """
 Moduł generowania wykresów latencji i jittera do wyświetlania
 w interfejsie webowym aplikacji.
@@ -19,6 +18,9 @@ import matplotlib.pyplot as plt
 # Minimalna liczba zarejestrowanych pomiarów potrzebna do narysowania wykresu.
 # Poniżej tej wartości zwracany jest placeholder z komunikatem.
 MIN_POINTS = 3
+
+# Tymczasowe wyłączenie wykresów w API (nie usuwa kodu rysowania).
+ENABLE_API_CHARTS = False
 
 # Funkcja pomocnicza do obliczania jittera z listy latencji.
 def _compute_jitter(values: list[float]) -> list[float]:
@@ -61,6 +63,9 @@ def generate_latency_png(history: list[float], title: str) -> bytes:
     Oś Y: czas odpowiedzi w ms.
     Gdy mniej niż MIN_POINTS pomiarów — zwraca placeholder.
     """
+    if not ENABLE_API_CHARTS:
+        return _placeholder_png("Wykres latencji\ntymczasowo wyłączony w API")
+
     n = len(history)
     if n < MIN_POINTS:
         return _placeholder_png(
@@ -87,6 +92,9 @@ def generate_jitter_png(history: list[float], title: str) -> bytes:
     Jitter_N = |latencja_N - latencja_(N-1)|.
     Gdy mniej niż MIN_POINTS pomiarów — zwraca placeholder.
     """
+    if not ENABLE_API_CHARTS:
+        return _placeholder_png("Wykres jittera\ntymczasowo wyłączony w API")
+
     n = len(history)
     if n < MIN_POINTS:
         return _placeholder_png(
