@@ -311,13 +311,13 @@ Zmiana priorytetu z ochroną:
 
 Fairness (sprawiedliwość) w systemie kolejkowania definiuje się jako równomierne traktowanie pacjentów przy podejmowaniu decyzji o obsłudze. W kontekście medycznym oznacza to:
 
-- **Sprawiedliwość kliniczna**: pacjent krytyczny (priorytet 5 — czerwony) musi być obsłużony przed pacjentem stabilnym (priorytet 1 — niebieski)
+- **Sprawiedliwość kliniczna**: pacjent krytyczny (priorytet 5 - czerwony) musi być obsłużony przed pacjentem stabilnym (priorytet 1 - niebieski)
 - **Niedyskryminacja**: pacjenci tego samego poziomu priorytetu mają podobne szanse na przyjęcie
 - **Przejrzystość**: reguły kolejkowania są jasne dla personelu medycznego
 
 System implementuje **5-poziomową hierarchię priorytetów**, co zapewnia sprawiedliwość kliniczną, ale stwarza teoretyczne zagrożenie **starvation** dla pacjentów niskiego priorytetu.
 
-### 6.2 Problem Starvation — Teoretyczne Nieobsłużenie Pacjentów
+### 6.2 Problem Starvation - Teoretyczne Nieobsłużenie Pacjentów
 
 **Starvation** to sytuacja w teorii szeregowania zadań, w której proces (pacjent) o niskim priorytecie nigdy nie otrzyma dostępu do zasobu (obsługi) z powodu ciągłej dominacji procesów o wyższych priorytetach.
 
@@ -340,7 +340,7 @@ Jest to **teoretyczne zagrożenie**, uwzględnione w analizie ryzyk projektu jak
 - W rzeczywistości: pacjent czeka, ale ostatecznie zostaje obsłużony
 - Aging to **rozwiązanie teoretyczne** na wypadek systemów o bardzo wysokiej dynamice priorytetów
 
-### 6.3 Mechanizm Aging — Teoretyczne Rozwiązanie Starvation
+### 6.3 Mechanizm Aging - Teoretyczne Rozwiązanie Starvation
 
 **Aging** to algorytmiczna technika, która dynamicznie podnosi priorytet procesu (pacjenta) w funkcji czasu oczekiwania w kolejce.
 
@@ -358,7 +358,7 @@ Pacjent niebieski (priorytet 1) z linear aging:
 - t=50s:   P = 1.5
 - t=100s:  P = 2.0 (automatycznie "piął się" do zielonego)
 - t=300s:  P = 4.0 (po 5 minutach czekania)
-- t=400s:  P = 5.0 (staje się krytycznym — "ostatnia szansa")
+- t=400s:  P = 5.0 (staje się krytycznym - "ostatnia szansa")
 ```
 
 **Zalety**:
@@ -409,7 +409,7 @@ t=50s:  P = 1 · 1.05^50  ≈ 11.5
 | Logarytmiczna | Średnia | Średnia | Średnia | Rzadko |
 | Wykładnicza | Niska | Niska | Wysoka | Nie stosuje się |
 
-### 6.4 Analiza Teoretyczna — Kiedy Aging Jest Potrzebny?
+### 6.4 Analiza Teoretyczna - Kiedy Aging Jest Potrzebny?
 
 #### Warunki Zagrożenia Starvation
 
@@ -435,7 +435,7 @@ W(priorytet=1) → ∞ (czekają nieskończenie długo)
 P(t) = const (priorytet nie zmienia się z czasem)
 ```
 
-### 6.6 Teoretyczne Implikacje dla Systemu
+### 6.5 Teoretyczne Implikacje dla Systemu
 
 #### Plusy Wdrożenia Aging
 
@@ -505,9 +505,9 @@ t=2.0s:   Cooldown mija, B może zmienić
 
 | Wartość | Ocena |
 |---------|-------|
-| <1s |  Zbyt niska — operatorzy mogą "walczyć" o pacjenta |
-| 1-3s |  OPTYMALNA — dość czasu na decyzję |
-| >5s |  Zbyt wysoka — frustracja personelu medycznego |
+| <1s |  Zbyt niska - operatorzy mogą "walczyć" o pacjenta |
+| 1-3s |  OPTYMALNA - dość czasu na decyzję |
+| >5s |  Zbyt wysoka - frustracja personelu medycznego |
 
 **Werdykt**:  **2 sekundy to rozsądny kompromis**
 
@@ -523,11 +523,11 @@ Aging w tle wprowadza **okno niespójności**: między momentem, kiedy pacjent �
 
 #### Wydajność a bezpieczeństwo
 
-Lock z Etapu 3 serializuje operacje na kolejce — gwarantuje spójność, ale zmniejsza przepustowość. Aging dodaje kolejny typ zapisu do bazy chroniony tym samym lockiem. Przy częstym agingu i dużej kolejce lock może stać się problematyczny. **Kompromis:** wydłużyć interwał agingu kosztem nieco wolniejszego wzrostu efektywnego priorytetu.
+Lock z Etapu 3 serializuje operacje na kolejce - gwarantuje spójność, ale zmniejsza przepustowość. Aging dodaje kolejny typ zapisu do bazy chroniony tym samym lockiem. Przy częstym agingu i dużej kolejce lock może stać się problematyczny. **Kompromis:** wydłużyć interwał agingu kosztem nieco wolniejszego wzrostu efektywnego priorytetu.
 
 #### Fairness a priorytetyzacja kliniczna
 
-Jeśli zbyt agresywnie podnosimy priorytet pacjentów niskiego priorytetu, tracimy właściwość, dla której system powstał — szybką obsługę stanów zagrożenia życia. **Idealny system balansuje** między fairness a clinical urgency (stan zagrożenia zawsze wychodzi na przód).
+Jeśli zbyt agresywnie podnosimy priorytet pacjentów niskiego priorytetu, tracimy właściwość, dla której system powstał - szybką obsługę stanów zagrożenia życia. **Idealny system balansuje** między fairness a clinical urgency (stan zagrożenia zawsze wychodzi na przód).
 
 ## 8. Które Kompromisy Są Dopuszczalne?
 
@@ -555,12 +555,64 @@ REGUŁA OGÓLNA:
 
 ## 9. Wnioski
 
-Analiza fairness i mechanizm aging ujawniają fundamentalny dylemat systemów kolejkowania priorytetowego: **optymalizacja pod kątem pilności jest w naturalnym konflikcie z gwarancją obsługi**. W informatyce problem ten jest znany od dekad i nie ma jednego rozwiązania — każda implementacja jest kompromisem.
+Projekt obejmował zaprojektowanie i implementację systemu kolejkowania pacjentów z priorytetami klinicznymi w środowisku webowym (Flask + SQLite), ze szczególnym uwzględnieniem zagadnień współbieżności, bezpieczeństwa danych i sprawiedliwości algorytmu. Każdy z czterech etapów wprowadzał nową warstwę złożoności i zmuszał do podejmowania świadomych decyzji implementacyjnych z myślą o potencjalnych kompromisach.
 
-W kontekście projektu:
+---
 
-- System bez agingu jest **wydajny, ale niesprawiedliwy** — poprawnie priorytetyzuje stany krytyczne, ale może bezterminowo blokować pacjentów niskiego priorytetu,
-- Aging liniowy z interwałem 5 min zapewnia **górne ograniczenie czasu oczekiwania**, eliminując starvation,
-- Implementacja agingu wymaga rozszerzenia mechanizmów współbieżności z Etapu 3,
+### 9.1 Podsumowanie implementacji
 
-> **Starvation w systemie medycznym nie jest dopuszczalnym kompromisem — jest błędem projektowym.** Aging nie jest opcjonalnym ulepszeniem, lecz wymaganiem bezpieczeństwa każdego systemu kolejkowania priorytetowego w środowisku klinicznym.
+System w finalnej wersji składa się z następujących komponentów:
+
+| Komponent | Technologia | Rola |
+|-----------|------------|------|
+| Backend REST API | Flask (Python) | Obsługa żądań HTTP, logika kolejkowania |
+| Baza danych | SQLite + SQLAlchemy | Trwałość danych, wersjonowanie rekordów |
+| Kolejka priorytetowa | Python | Obsługa pacjentów wg priorytetu |
+| Symulacja napływu | Rozkład Poissona | Realistyczny model przybycia pacjentów |
+| Mechanizm współbieżności | Threading lock + cooldown (2s) | Ochrona przed race condition |
+| Instrumentacja | Latencja, jitter | Pomiar wydajności i stabilności systemu |
+| Frontend | HTML + JavaScript + CSS | Podgląd kolejki, panel operatora |
+| Deployment | Render.com + lokalne | Dostępność zdalna i lokalna |
+
+Projekt przeszedł pełną ścieżkę od prostej kolejki FIFO (Etap 1), przez dynamiczne priorytety (Etap 2), wymuszenie i naprawę race condition (Etap 3), do analizy fairness i mechanizmu aging (Etap 4).
+
+---
+
+### 9.2 Najważniejsze decyzje implementacyjne
+
+#### Decyzja 1: SQLite jako baza danych
+
+**Uzasadnienie:** Prostota wdrożenia, zerowa konfiguracja, wystarczająca wydajność dla systemu demonstracyjnego. SQLite zapisuje dane między restartami, co eliminuje ryzyko R3 (utrata danych).
+
+**Kompromis:** Prostota i trwałość danych kosztem skalowalności poziomej.
+
+---
+
+#### Decyzja 2: Threading lock
+
+**Uzasadnienie:** Flask domyślnie działa wielowątkowo. Lock aplikacyjny jest prostszy w implementacji, łatwiejszy do zademonstrowania i bardziej czytelny dydaktycznie.
+
+**Kompromis:** Jasność kodu i łatwość demonstracji kosztem skalowalności między procesami.
+
+---
+
+#### Decyzja 3: Cooldown 2s jako dodatkowy mechanizm ochronny
+
+**Uzasadnienie:** Lock serializuje dostęp, ale nie zapobiega sytuacji, w której dwóch operatorów zmienia priorytet tego samego pacjenta w bardzo krótkim czasie. Cooldown daje operatorowi chwilę na podjęcie decyzji bez ryzyka natychmiastowego nadpisania.
+
+**Kompromis:** Ochrona operacyjna kosztem chwilowej blokady użytkownika w skrajnych przypadkach.
+
+---
+
+#### Decyzja 4: Wersjonowanie logiczne
+
+**Uzasadnienie:** Wersjonowanie przez `_last_writer` wystarczy dla celów demonstracyjnych i poprawnie wykrywa konflikty zapisu.
+
+**Kompromis:** Prostota implementacji kosztem niepełnego pokrycia scenariuszy wyścigu.
+
+---
+
+### 9.3 Podsumowanie
+
+Projekt demonstruje, że systemy kolejkowania priorytetowego w medycynie są **nieproporcjonalnie trudniejsze** niż sugeruje ich pozorna prostota. Prosta kolejka FIFO z Etapu 1 zajmuje kilkanaście linii kodu - jednak zapewnienie jej poprawności przy wielu współbieżnych operatorach, gwarancja fairness i odporność na awarie to problemy, którym poświęca się osobne publikacje naukowe i które są aktywnym obszarem badań w informatyce stosowanej do ochrony zdrowia.
+
