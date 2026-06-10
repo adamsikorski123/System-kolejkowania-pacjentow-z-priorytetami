@@ -28,8 +28,10 @@
 3. [Symulacja zaburzeń](#3-symulacja-zaburzeń)
 4. [Instrumentacja](#4-instrumentacja)
 5. [Omówienie zagadnień współbieżności (race condition)](#5-omówienie-zagadnień-współbieżności-race-condition)
-
-
+6. [Analiza Fairness i Mechanizm Aging](#6-analiza-fairness-i-mechanizm-aging)
+7. [Analiza Kompromisów Implementacyjnych](#7-analiza-kompromisów-implementacyjnych)
+8. [Które Kompromisy Są Dopuszczalne?](#8-które-kompromisy-są-dopuszczalne)
+9. [Wnioski](#9-wnioski)
 ---
 
 ## 1. Analiza potrzeb i wymagań klinicznych
@@ -402,7 +404,7 @@ t=50s:  P = 1 · 1.05^50  ≈ 11.5
 
 | Strategia | Predykcyjność | Sprawiedliwość | Złożoność | Medycyna |
 |-----------|--|--|--|--|
-| Linear | Wysoka ✓ | Wysoka ✓ | Niska ✓ | Standard ✓ |
+| Linear | Wysoka  | Wysoka  | Niska  | Standard  |
 | Logarytmiczna | Średnia | Średnia | Średnia | Rzadko |
 | Wykładnicza | Niska | Niska | Wysoka | Nie stosuje się |
 
@@ -506,7 +508,7 @@ t=2.0s:   Cooldown mija, B może zmienić
 | 1-3s |  OPTYMALNA — dość czasu na decyzję |
 | >5s |  Zbyt wysoka — frustracja personelu medycznego |
 
-**Werdykt**: ✓ **2 sekundy to rozsądny kompromis**
+**Werdykt**:  **2 sekundy to rozsądny kompromis**
 
 Operatorzy czasem dostają HTTP 429, ale system zapobiega przypadkowemu "przepychaniu" tego samego pacjenta przez wielu użytkowników.
 
