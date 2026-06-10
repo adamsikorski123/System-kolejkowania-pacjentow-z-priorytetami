@@ -299,3 +299,265 @@ Zmiana priorytetu z ochroną:
 <p align="center">
   <img src="app/static/img/prio_z.png" alt="admit_bez" height="800"/>
 </p>
+
+---
+
+## 6. Analiza Fairness i Mechanizm Aging
+
+### 6.1 Fairness w Systemie Kolejkowania
+
+Fairness (sprawiedliwość) w systemie kolejkowania definiuje się jako równomierne traktowanie pacjentów przy podejmowaniu decyzji o obsłudze. W kontekście medycznym oznacza to:
+
+- **Sprawiedliwość kliniczna**: pacjent krytyczny (priorytet 5 — czerwony) musi być obsłużony przed pacjentem stabilnym (priorytet 1 — niebieski)
+- **Niedyskryminacja**: pacjenci tego samego poziomu priorytetu mają podobne szanse na przyjęcie
+- **Przejrzystość**: reguły kolejkowania są jasne dla personelu medycznego
+
+System implementuje **5-poziomową hierarchię priorytetów**, co zapewnia sprawiedliwość kliniczną, ale stwarza teoretyczne zagrożenie **starvation** dla pacjentów niskiego priorytetu.
+
+### 6.2 Problem Starvation — Teoretyczne Nieobsłużenie Pacjentów
+
+**Starvation** to sytuacja w teorii szeregowania zadań, w której proces (pacjent) o niskim priorytecie nigdy nie otrzyma dostępu do zasobu (obsługi) z powodu ciągłej dominacji procesów o wyższych priorytetach.
+
+**Matematycznie**: jeśli intensywność ruchu ρ(high_priority) > 1, to pacjenci niskiego priorytetu mogą czekać nieskończenie długo.
+
+#### Przykład Scenariusza Starvation
+
+```
+Pacjent niebieski (priorytet 1) przychodzi o 10:00
+Przez 2 godziny przychodzą TYLKO pacjenci czerwoni/pomarańczowi
+Pacjent czeka → czeka → czeka...
+Teoretycznie: nigdy się nie dojdzie do obsługi!
+```
+
+#### Status w Projekcie
+
+Jest to **teoretyczne zagrożenie**, uwzględnione w analizie ryzyk projektu jako **R2 (wysokie ryzyko, wysoki wpływ)**, ale w praktyce:
+
+- System medyczny ma ograniczoną liczbę pacjentów krytycznych
+- W rzeczywistości: pacjent czeka, ale ostatecznie zostaje obsłużony
+- Aging to **rozwiązanie teoretyczne** na wypadek systemów o bardzo wysokiej dynamice priorytetów
+
+### 6.3 Mechanizm Aging — Teoretyczne Rozwiązanie Starvation
+
+**Aging** to algorytmiczna technika, która dynamicznie podnosi priorytet procesu (pacjenta) w funkcji czasu oczekiwania w kolejce.
+
+Istnieje kilka wariantów funkcji aging, może być np. liniowy, logarytmiczny oraz wykładniczy.
+
+#### Trzy Warianty Aging
+
+**1. Linear Aging** (najczęściej stosowana w systemach medycznych)
+
+**Przykład**:
+
+```
+Pacjent niebieski (priorytet 1) z linear aging:
+- t=0s:    P = 1.0
+- t=50s:   P = 1.5
+- t=100s:  P = 2.0 (automatycznie "piął się" do zielonego)
+- t=300s:  P = 4.0 (po 5 minutach czekania)
+- t=400s:  P = 5.0 (staje się krytycznym — "ostatnia szansa")
+```
+
+**Zalety**:
+- Proste do zrozumienia i implementacji
+- Liniowy wzrost = przewidywalny dla personelu
+- Standard w systemach medycznych 
+
+---
+
+**2. Logarytmiczny Aging** 
+
+**Charakterystyka**:
+- Wolniej rosnący priorytet
+- Początkowo mały efekt, potem rośnie
+- Bardziej sprawiedliwe dla pacjentów wysokiego priorytetu
+
+**Przykład**:
+
+```
+t=10s:   P = 1 + 0.5·ln(10)   ≈ 1.15  
+t=100s:  P = 1 + 0.5·ln(100)  ≈ 2.30  
+t=1000s: P = 1 + 0.5·ln(1000) ≈ 3.45  
+```
+
+---
+
+**3. Wykładniczy Aging**
+
+**Charakterystyka**:
+- Szybko rosnący priorytet 
+- Mały wpływ na początku, potem drastyczny skok
+- Może być niesprawiedliwe dla nowych pacjentów krytycznych
+
+**Przykład**:
+
+```
+t=10s:  P = 1 · 1.05^10  ≈ 1.63
+t=50s:  P = 1 · 1.05^50  ≈ 11.5 
+```
+
+---
+
+#### Porównanie Strategii
+
+| Strategia | Predykcyjność | Sprawiedliwość | Złożoność | Medycyna |
+|-----------|--|--|--|--|
+| Linear | Wysoka ✓ | Wysoka ✓ | Niska ✓ | Standard ✓ |
+| Logarytmiczna | Średnia | Średnia | Średnia | Rzadko |
+| Wykładnicza | Niska | Niska | Wysoka | Nie stosuje się |
+
+### 6.4 Analiza Teoretyczna — Kiedy Aging Jest Potrzebny?
+
+#### Warunki Zagrożenia Starvation
+
+Starvation występuje wtedy, gdy:
+
+1. **Wysokie tempo przybycia pacjentów wysokiego priorytetu**
+
+```
+λ(priorytet=5) + λ(priorytet=4) > μ (Service Rate)
+
+Czyli: pacjenci krytyczni przychodzą szybciej niż można ich obsługiwać
+```
+
+2. **Długie czasy oczekiwania pacjentów niskiego priorytetu**
+
+```
+W(priorytet=1) → ∞ (czekają nieskończenie długo)
+```
+
+3. **Brak mechanizmu dynamicznego podnoszenia priorytetu**
+
+```
+P(t) = const (priorytet nie zmienia się z czasem)
+```
+
+### 6.6 Teoretyczne Implikacje dla Systemu
+
+#### Plusy Wdrożenia Aging
+
+-  Gwarancja: każdy pacjent ostatecznie zostanie obsłużony
+-  Sprawiedliwość: nie ma "zagubnionych" pacjentów
+-  Psychologiczny: pacjent widzi, że jego priorytet rośnie
+
+#### Minusy Wdrożenia Aging
+
+-  Wszyscy pacjenci ostatecznie otrzymują wysokie priorytety 
+-  Dodatkowa złożoność: trzeba przeliczać co sekundę
+-  Dodatkowe opóźnienie w sortowaniu
+
+---
+
+## 7. Analiza Kompromisów Implementacyjnych
+
+### 7.1 Analiza Decyzji: Latencja vs. Spójność Danych
+
+#### Problem: Race Condition przy Zmianie Priorytetu
+
+Dwóch operatorów zmienia priorytet tego samego pacjenta jednocześnie:
+
+```
+Operator A: zmienia priorytet 3 → 4 
+Operator B: zmienia priorytet 3 → 2 
+
+BEZ OCHRONY (brak lock):
+├─ t=0.00: Obaj czytają: priority=3
+├─ t=0.50: A zapisuje: priority=4
+├─ t=0.50: B zapisuje: priority=2 ← KONFLIKT!
+└─ Wynik: priority=2
+
+Z OCHRONĄ (lock):
+├─ t=0.00: A wchodzi w sekcję krytyczną
+├─ t=0.05: A czyta priority=3, zmienia na 4
+├─ t=0.05: B czeka na lock...
+├─ t=0.10: A wychodzi z sekcji, zwalnia lock
+├─ t=0.10: B wchodzi w sekcję krytyczną
+├─ t=0.15: B czyta priority=4, zmienia na 3
+└─ Wynik: priority=3 (oba zapisy były atomowe)
+```
+
+#### Analiza Kompromisu
+
+| Aspekt | Bez Ochrony | Z Ochroną (Lock) |
+|--------|-------------|-----------------|
+| **Latencja API** | 1-5ms | 501-555ms |
+| **Spójność danych** | NISKA (race condition) | WYSOKA  |
+| **Przepustowość** | Wysoka (równoległy dostęp) | Niska (serializacja) |
+| **Bezpieczeństwo kliniczne** |  RYZYKO |  BEZPIECZNE |
+
+W systemach medycznych **bezpieczeństwo >> wydajność**. Dodatkowe 500-550 ms latencji to akceptowalna cena za gwarancję spójności danych pacjentów.
+
+### 7.2 Analiza Decyzji: Wydajność vs. Bezpieczeństwo Operacyjne
+
+#### Problem: Zmiana Priorytetu w Szybkiej Sekwencji
+
+```
+t=0.0s:   Operator A zmienia priority 3→4
+t=0.5s:   Operator B chce zmienić 3→2 → COOLDOWN! 
+t=2.0s:   Cooldown mija, B może zmienić
+```
+
+
+#### Parametry Cooldown
+
+| Wartość | Ocena |
+|---------|-------|
+| <1s |  Zbyt niska — operatorzy mogą "walczyć" o pacjenta |
+| 1-3s |  OPTYMALNA — dość czasu na decyzję |
+| >5s |  Zbyt wysoka — frustracja personelu medycznego |
+
+**Werdykt**: ✓ **2 sekundy to rozsądny kompromis**
+
+Operatorzy czasem dostają HTTP 429, ale system zapobiega przypadkowemu "przepychaniu" tego samego pacjenta przez wielu użytkowników.
+
+**WAŻNE**: Cooldown (429) to **NIE race condition** (409). To celowy mechanizm ochronny na poziomie aplikacji.
+
+### 7.3 Fairness a kompromisy implementacyjne
+
+#### Opóźnienia a spójność danych
+
+Aging w tle wprowadza **okno niespójności**: między momentem, kiedy pacjent „zasługuje" na wyższy priorytet, a momentem aktualizacji bazy upływa dany czas. W tym oknie operator może podjąć decyzję na podstawie nieaktualnego priorytetu. Jest to kompromis między **spójnością natychmiastową** a **przewidywalnością stanu bazy**. W kontekście SOR opóźnienie agingu o 5 minut jest klinicznie akceptowalne dla priorytetów 1–3. Dla priorytetów 4–5 (pacjenci krytyczni) aging nie powinien w ogóle zmieniać priorytetu.
+
+#### Wydajność a bezpieczeństwo
+
+Lock z Etapu 3 serializuje operacje na kolejce — gwarantuje spójność, ale zmniejsza przepustowość. Aging dodaje kolejny typ zapisu do bazy chroniony tym samym lockiem. Przy częstym agingu i dużej kolejce lock może stać się problematyczny. **Kompromis:** wydłużyć interwał agingu kosztem nieco wolniejszego wzrostu efektywnego priorytetu.
+
+#### Fairness a priorytetyzacja kliniczna
+
+Jeśli zbyt agresywnie podnosimy priorytet pacjentów niskiego priorytetu, tracimy właściwość, dla której system powstał — szybką obsługę stanów zagrożenia życia. **Idealny system balansuje** między fairness a clinical urgency (stan zagrożenia zawsze wychodzi na przód).
+
+## 8. Które Kompromisy Są Dopuszczalne?
+
+### 8.1 Macierz Akceptowalności
+
+```
+REGUŁA OGÓLNA:
+┌─────────────────────────────────────────────┐
+│ Bezpieczeństwo medyczne = NIEZMIENNIE WAŻNE        │
+│ Wydajność = Optymalizujemy w drugiej kolejności│
+└─────────────────────────────────────────────┘
+```
+
+### 8.2 Szczegółowa Ocena
+
+| Kompromis | Akceptowalny | Uzasadnienie |
+|-----------|-------------|-------------|
+| +500ms latencji dla spójności danych |  **TAK** | Bezpieczeństwo > wydajność |
+| Cooldown 2s dla zapobiegu konfliktom |  **TAK** | Ochrona operacyjna uzasadniona |
+| Sleep(0.5) w testach |  **TAK** | Edukacyjne |
+| **BRAK mechanizmu aging** | **NIE** | Ryzyko starvation pacjentów |
+| Brak wersjonowania danych | **OSTROŻNIE** | SQLite + lock są wystarczające dla celów edukacyjnych |
+
+---
+
+## 9. Wnioski
+
+Analiza fairness i mechanizm aging ujawniają fundamentalny dylemat systemów kolejkowania priorytetowego: **optymalizacja pod kątem pilności jest w naturalnym konflikcie z gwarancją obsługi**. W informatyce problem ten jest znany od dekad i nie ma jednego rozwiązania — każda implementacja jest kompromisem.
+
+W kontekście projektu:
+
+- System bez agingu jest **wydajny, ale niesprawiedliwy** — poprawnie priorytetyzuje stany krytyczne, ale może bezterminowo blokować pacjentów niskiego priorytetu,
+- Aging liniowy z interwałem 5 min zapewnia **górne ograniczenie czasu oczekiwania**, eliminując starvation,
+- Implementacja agingu wymaga rozszerzenia mechanizmów współbieżności z Etapu 3,
+
+> **Starvation w systemie medycznym nie jest dopuszczalnym kompromisem — jest błędem projektowym.** Aging nie jest opcjonalnym ulepszeniem, lecz wymaganiem bezpieczeństwa każdego systemu kolejkowania priorytetowego w środowisku klinicznym.

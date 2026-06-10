@@ -17,13 +17,13 @@ USER_ACCOUNTS = [
 TEST_ROUNDS        = 10
 TEST_MODE          = "admit"   # "admit" — przyjęcie pacjenta | "priority" — zmiana priorytetu
 THREADS_PER_ROUND  = 2 # liczba równoczesnych żądań w każdej rundzie (minimum 2)
-PRIORITY_PATIENT_ID = None
+PRIORITY_PATIENT_ID = None #aby pacjent był losowo wybierany
 
 # Wymuszanie częstszych RC dla admit:
-ROUND_PATIENT_WAIT_TIMEOUT_S = 15.0
-MIN_PATIENTS_FOR_ADMIT_ROUND = 1
-WAIT_FOR_COOLDOWN_BEFORE_ADMIT_ROUND = True
-COOLDOWN_WAIT_TIMEOUT_S = 60.0
+ROUND_PATIENT_WAIT_TIMEOUT_S = 15.0 # Czekanie na cooldown przed rundą admit, aby dać szansę na wykrycie sytuacji wyścigu, zamiast szybkiego błędu połączenia
+MIN_PATIENTS_FOR_ADMIT_ROUND = 1 # Minimalna liczba pacjentów w API potrzebna do uruchomienia rundy admit 
+WAIT_FOR_COOLDOWN_BEFORE_ADMIT_ROUND = True # Jeśli True, przed każdą rundą admit czeka aż wszystkie sesje będą gotowe do przyjęcia pacjenta. Jeśli False, rundy admit są uruchamiane bez czekania, co może skutkować większą liczbą błędów połączenia (-1) zamiast 409.
+COOLDOWN_WAIT_TIMEOUT_S = 60.0 # Maksymalny czas oczekiwania na cooldown przed rundą admit, jeśli WAIT_FOR_COOLDOWN_BEFORE_ADMIT_ROUND jest True. Jeśli cooldown nie minie w tym czasie, runda jest oznaczana jako błąd (-1).
 # ─────────────────────────────────────────────────────────────────────────────
 
 
