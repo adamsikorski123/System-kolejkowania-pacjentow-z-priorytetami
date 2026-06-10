@@ -12,7 +12,7 @@
 |---|---|
 | **Przedmiot** | RAIM – Rozwój aplikacji internetowych w medycynie (2025/2026) |
 | **Temat** | Temat 2 – System kolejkowania pacjentów z priorytetami |
-| **Etap** | Etap  – Finalna obrona |
+| **Etap** | Etap 4  – Finalna obrona |
 | **Rok studiów** | 3|
 | **Prowadzący** | dr inż. Anna Jezierska |
 | **Autorzy** | Adam Sikorsi, Mateusz Grochowalski |
