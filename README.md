@@ -12,7 +12,7 @@
 |---|---|
 | **Przedmiot** | RAIM – Rozwój aplikacji internetowych w medycynie (2025/2026) |
 | **Temat** | Temat 2 – System kolejkowania pacjentów z priorytetami |
-| **Etap** | Etap 3 – Współbieżność i analiza błędów |
+| **Etap** | Etap  – Finalna obrona |
 | **Rok studiów** | 3|
 | **Prowadzący** | dr inż. Anna Jezierska |
 | **Autorzy** | Adam Sikorsi, Mateusz Grochowalski |
@@ -40,11 +40,12 @@
 
 W środowisku szpitalnym, a sczególnie w izbach przyjęć (SOR), poradniach i oddziałach intensywnej terapii - zarządzanie kolejką pacjentów jest istotnym problemem. Tradycyjne podejście FIFO (first-in, first-out) bez uwzględnienia stanu klinicznego pacjenta może prowadzić do poważnych zagrożeń zdrowotnych: pacjent w stanie zagrożenia życia może oczekiwać za pacjentem z mniej groźną dolegliwością.
 
-Niniejszy projekt symuluje system kolejkowania pacjentów oparty na priorytetach klinicznych, który w kolejnych etapach zostanie rozszerzony o race condition i mechanizm aging.
+Niniejszy projekt symuluje system kolejkowania pacjentów oparty na priorytetach klinicznych, który w kolejnych etapach zostanie rozszerzony o race condition. Dodatkowo zostanie przeprowadzona analiza fairness i  mechanizmu aging w kontekście naszego systemu. 
 
 **Etap 1** implementuje podstawowy wariant kolejki **FIFO** za pomocą losowej generacji pacjentów (według rozkładu Poissona) i obsługi przez operatora.  
 **Etap 2** Dynamiczne zmiany **priorytetów** przez wielu operatorów.  
 **Etap 3** Wymuszenie race condition i implementacja mechanizmu blokady lub wersjonowania.
+**Etap 3** Analiza fairness i mechanizm aging.
 
 ### 1.2 Określenie użytkowników systemu
 
