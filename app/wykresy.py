@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 MIN_POINTS = 3
 
 # Tymczasowe wyłączenie wykresów w API (nie usuwa kodu rysowania).
-ENABLE_API_CHARTS = False
+ENABLE_API_CHARTS = True
 
 # Funkcja pomocnicza do obliczania jittera z listy latencji.
 def _compute_jitter(values: list[float]) -> list[float]:

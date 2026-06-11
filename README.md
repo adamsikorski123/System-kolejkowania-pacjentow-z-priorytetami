@@ -1,9 +1,9 @@
 # System-kolejkowania-pacjentow-z-priorytetami
 
 <p align="center">
-  <img src="app/static/img/pg_logo.jpg" alt="Logo Politechniki Gdańskiej" height="800"/>
+  <img src="app/static/img/pg_logo.jpg" alt="Logo Politechniki Gdańskiej" height="80"/>
   &nbsp;&nbsp;&nbsp;
-  <img src="app/static/img/kib_logo.png" alt="Logo KIB" height="800"/>
+  <img src="app/static/img/kib_logo.png" alt="Logo KIB" height="80"/>
 </p>
 
 
@@ -24,14 +24,15 @@
 ## Spis treści
 
 1. [Analiza potrzeb i wymagań klinicznych](#1-analiza-potrzeb-i-wymagań-klinicznych)
-2. [Projekt architektury systemu](#2-projekt-architektury-systemu)
-3. [Symulacja zaburzeń](#3-symulacja-zaburzeń)
-4. [Instrumentacja](#4-instrumentacja)
-5. [Omówienie zagadnień współbieżności (race condition)](#5-omówienie-zagadnień-współbieżności-race-condition)
-6. [Analiza Fairness i Mechanizm Aging](#6-analiza-fairness-i-mechanizm-aging)
-7. [Analiza Kompromisów Implementacyjnych](#7-analiza-kompromisów-implementacyjnych)
-8. [Które Kompromisy Są Dopuszczalne?](#8-które-kompromisy-są-dopuszczalne)
-9. [Wnioski](#9-wnioski)
+2. [Instrukcja lokalnego uruchomienia i testu](#2-instrukcja-lokalnego-uruchomienia-i-testu)
+3. [Projekt architektury systemu](#3-projekt-architektury-systemu)
+4. [Symulacja zaburzeń](#4-symulacja-zaburzen)
+5. [Instrumentacja](#5-instrumentacja)
+6. [Omówienie zagadnień współbieżności (race condition)](#6-omowienie-zagadnien-wspolbieznosci-race-condition)
+7. [Analiza Fairness i Mechanizm Aging](#7-analiza-fairness-i-mechanizm-aging)
+8. [Analiza Kompromisów Implementacyjnych](#8-analiza-kompromisow-implementacyjnych)
+9. [Które Kompromisy Są Dopuszczalne?](#9-ktore-kompromisy-sa-dopuszczalne)
+10. [Wnioski](#10-wnioski)
 ---
 
 ## 1. Analiza potrzeb i wymagań klinicznych
@@ -40,7 +41,7 @@
 
 W środowisku szpitalnym, a sczególnie w izbach przyjęć (SOR), poradniach i oddziałach intensywnej terapii - zarządzanie kolejką pacjentów jest istotnym problemem. Tradycyjne podejście FIFO (first-in, first-out) bez uwzględnienia stanu klinicznego pacjenta może prowadzić do poważnych zagrożeń zdrowotnych: pacjent w stanie zagrożenia życia może oczekiwać za pacjentem z mniej groźną dolegliwością.
 
-Niniejszy projekt symuluje system kolejkowania pacjentów oparty na priorytetach klinicznych, który w kolejnych etapach zostanie rozszerzony o race condition. Dodatkowo zostanie przeprowadzona analiza fairness i  mechanizmu aging w kontekście naszego systemu. 
+Niniejszy projekt symuluje system kolejkowania pacjentów oparty na priorytetach klinicznych, który w kolejnych etapach został rozszerzony o race condition. Dodatkowo zostanie przeprowadzona analiza fairness i mechanizmu aging w kontekście naszego systemu. 
 
 **Etap 1** implementuje podstawowy wariant kolejki **FIFO** za pomocą losowej generacji pacjentów (według rozkładu Poissona) i obsługi przez operatora.  
 **Etap 2** Dynamiczne zmiany **priorytetów** przez wielu operatorów.  
@@ -66,13 +67,38 @@ Niniejszy projekt symuluje system kolejkowania pacjentów oparty na priorytetach
 
 ---
 
-## 2. Projekt architektury systemu
+## 2. Instrukcja lokalnego uruchomienia i testu
+
+Kroki uruchomienia lokalnego:
+1. Zainstaluj requirements.txt:
+   - pip install -r requirements.txt
+2. Uruchom aplikację:
+   - python run.py
+   Aplikacja nasłuchuje domyślnie na http://0.0.0.0:5000 (lokalnie: http://127.0.0.1:5000).
+3. Wejdź w przeglądarce na http://127.0.0.1:5000 aby zobaczyć UI.
+
+Uruchamianie testu race-condition (skrypt test.py):
+1. Upewnij się, że serwer działa.
+2. W folderze projektu uruchom:
+   - python scripts/test.py
+3. W razie potrzeby zmodyfikuj w scripts/test.py:
+   - TEST_MODE, THREADS_PER_ROUND, TEST_ROUNDS — parametry testu.
+4. Interpretacja wyników:
+   - 200 — sukces
+   - 409 — conflict (race condition)
+   - 429 — cooldown (intencjonalna ochrona, nie race)
+   - -1 — błąd połączenia / timeout
+
+Uwagi:
+- W celach demonstracyjnych w projekcie istnieje przełącznik ochrony race condition w prawym górnym rogu intefejsu.
+
+## 3. Projekt architektury systemu
 
 ### Uruchamianie lokalnie przez `http://127.0.0.1:5000`
 ### Uruchamianie zdalnie przez `https://system-kolejkowania-pacjentow-z-xuty.onrender.com`
 
 
-### 2.1 Przegląd architektury
+### 3.1 Przegląd architektury
 
 System zbudowany jest w architekturze **klient-serwer** z komunikacją REST API:
 
@@ -101,7 +127,7 @@ System zbudowany jest w architekturze **klient-serwer** z komunikacją REST API:
 └─────────────────────────────────────────────────┘
 ```
 
-### 2.2 Model danych (Etap 1)
+### 3.2 Model danych (Etap 1)
 
 ```
 Pacjent
@@ -123,20 +149,20 @@ QueueEntry
 ```
 
 ---
-## 3. Symulacja zaburzeń 
+## 4. Symulacja zaburzeń 
 
 
 
 Podczas realizacji projektu napotkano dwa istotne problemy charakterystyczne dla systemów kolejkowych i współbieżnych: starvation oraz race condition. 
 
 
-### 3.1 Starvation
+### 4.1 Starvation
 
 
 Starvation oznacza sytuację, w której element o niższym priorytecie może być przez długi czas pomijany, ponieważ system stale preferuje elementy o priorytecie wyższym. W kontekście naszego projektu oznacza to, że pacjent o niskim priorytecie mógł oczekiwać znacznie dłużej, jeśli w kolejce nieustannie pojawiali się pacjenci pilniejsi. Zjawisko to jest dobrze znane z teorii planowania zadań w systemach operacyjnych i stanowi naturalne ryzyko w algorytmach priorytetowych.
 
 
-### 3.2 Race Condition
+### 4.2 Race Condition
 
 
 Drugim zaobserwowanym problemem był race condition, czyli błąd współbieżności pojawiający się wtedy, gdy dwie osoby jednocześnie modyfikują te same dane. W naszym przypadku dotyczyło to równoczesnej zmiany priorytetu tego samego pacjenta przez dwóch użytkowników systemu. Przykładowo, jeśli pacjent miał ustawiony priorytet 4, jedna osoba mogła kliknąć obniżenie priorytetu, a druga jego podwyższenie. Ze względu na opóźnienie aktualizacji danych w bazie oraz brak pełnej synchronizacji widoków, system mógł chwilowo pokazać priorytet 3, a następnie przeskoczyć na 5. Tego typu zachowanie jest przykładem konfliktu współbieżnych zapisów i pokazuje, że końcowy stan danych zależał od kolejności wykonania operacji.
@@ -148,13 +174,13 @@ Opisane problemy pokazują, że projektowanie systemów kolejkowych nie ogranicz
 
 ---
 
-## 4. Instrumentacja
+## 5. Instrumentacja
 
 
 W analizie wydajności systemu instrumentacja oznacza zastosowanie dodatkowych mechanizmów rejestrujących zdarzenia oraz czasy ich występowania w trakcie działania aplikacji. Jej celem jest zebranie danych, które pozwalają mierzyć i oceniać zachowanie systemu pod względem wydajnościowym, na przykład czas obsługi operacji, czas oczekiwania lub opóźnienia komunikacyjne.
 
 
-### 4.1 API latencja last
+### 5.1 API latencja last
 
 W odniesieniu do latencji instrumentacja umożliwia wyznaczenie czasu potrzebnego na realizację konkretnego działania, na przykład zapisania zmiany priorytetu pacjenta do bazy danych albo odświeżenia widoku kolejki po stronie użytkownika. Porównanie momentu rozpoczęcia i zakończenia operacji pozwala obliczyć opóźnienie, a analiza wielu takich pomiarów umożliwia ocenę wydajności całego systemu lub jego poszczególnych komponentów.
 
@@ -166,32 +192,32 @@ W naszym programie tuż po wejściu do endpointu zapisywany jest czas startu. Na
 
 Koniec pomiaru i obliczenie latencji.
 
-### 4.2 API latencja avg
+### 5.2 API latencja avg
 
 
 Średni czas obsługi żądania API (w ms), liczony z ostatnich próbek.
 
 
-### 4.3 API jitter
+### 5.3 API jitter
 
 Istotnym uzupełnieniem pomiaru latencji jest pomiar jitteru, czyli zmienności opóźnienia pomiędzy kolejnymi wykonaniami tej samej lub podobnej operacji. Jitter pokazuje, na ile stabilny czasowo jest system: nawet jeśli średnia latencja pozostaje akceptowalna, duże wahania pomiędzy kolejnymi pomiarami mogą świadczyć o niestabilności działania, przeciążeniu lub problemach ze współbieżnością. Dzięki instrumentacji możliwe jest więc nie tylko określenie średniego czasu odpowiedzi, ale także ocena, czy system działa w sposób przewidywalny i powtarzalny.
 
 ---
 
-## 5. Omówienie zagadnień współbieżności (race condition)
+## 6. Omówienie zagadnień współbieżności (race condition)
 
-### 5.1 Współbieżność
+### 6.1 Współbieżność
 
 Współbieżność oznacza wykonywanie wielu operacji „w tym samym czasie” (np. przez wiele wątków lub wielu użytkowników systemu).  
 
 W aplikacjach webowych oznacza to, że serwer może obsługiwać kilka żądań jednocześnie, które odwołują się do tych samych danych.
 
-### 5.2 Czym jest race condition
+### 6.2 Czym jest race condition
 
 Race condition (wyścig) występuje wtedy, gdy wynik końcowy zależy od kolejności wykonania równoległych operacji na wspólnym zasobie.  
 Jeżeli nie ma poprawnej synchronizacji, dwa żądania mogą odczytać ten sam stan „przed zmianą” i zapisać kolidujące wyniki.
 
-### 5.3 Jak race condition wygląda u nas projekcie
+### 6.3 Jak race condition wygląda u nas projekcie
 
 W projekcie występują dwa główne miejsca podatne na wyścig:
 
@@ -201,7 +227,7 @@ W projekcie występują dwa główne miejsca podatne na wyścig:
 2. **Zmiana priorytetu**  
    Dwóch operatorów może jednocześnie zmieniać priorytet tego samego pacjenta (np. jeden zwiększa, drugi zmniejsza).
 
-### 5.4 Wymuszenie race condition
+### 6.4 Wymuszenie race condition
 
 Do celów dydaktycznych race condition jest świadomie wzmacniany przez:
 - równoległe żądania (test wielowątkowy),
@@ -209,7 +235,7 @@ Do celów dydaktycznych race condition jest świadomie wzmacniany przez:
 
 Dzięki temu łatwo odtworzyć konflikt i obserwować jego skutki w API i metrykach.
 
-### 5.5 Mechanizm blokady / wersjonowania
+### 6.5 Mechanizm blokady / wersjonowania
 
 W projekcie zastosowano dwa podejścia:
 
@@ -227,7 +253,7 @@ W projekcie zastosowano dwa podejścia:
   Jeśli w międzyczasie inny operator zmieni rekord, backend zwraca `"conflict"`, a endpoint mapuje to na HTTP `409`.
 
 
-### 5.6 Porównanie przed i po poprawce (test)
+### 6.6 Porównanie przed i po poprawce (test)
 
 Do porównania używany jest skrypt `test.py`, który:
 - loguje dwóch użytkowników,
@@ -282,32 +308,32 @@ Przynajmniej jeden 409:            0  ← wykryty wyścig
 Przyjęcie pacjenta bez ochrony:
 
 <p align="center">
-  <img src="app/static/img/admit_bez.png" alt="admit_bez" height="800"/>
+  <img src="app/static/img/admit_bez.png" alt="admit_bez" height="200"/>
 </p>
 
 Przyjęcie pacjenta z ochroną:
 
 <p align="center">
-  <img src="app/static/img/admit_z.png" alt="admit_bez" height="800"/>
+  <img src="app/static/img/admit_z.png" alt="admit_bez" height="200"/>
 </p>
 
 Zmiana priorytetu bez ochrony:
 
 <p align="center">
-  <img src="app/static/img/prio_bez.png" alt="admit_bez" height="800"/>
+  <img src="app/static/img/prio_bez.png" alt="admit_bez" height="200"/>
 </p>
 
 Zmiana priorytetu z ochroną:
 
 <p align="center">
-  <img src="app/static/img/prio_z.png" alt="admit_bez" height="800"/>
+  <img src="app/static/img/prio_z.png" alt="admit_bez" height="200"/>
 </p>
 
 ---
 
-## 6. Analiza Fairness i Mechanizm Aging
+## 7. Analiza Fairness i Mechanizm Aging
 
-### 6.1 Fairness w Systemie Kolejkowania
+### 7.1 Fairness w Systemie Kolejkowania
 
 Fairness (sprawiedliwość) w systemie kolejkowania definiuje się jako równomierne traktowanie pacjentów przy podejmowaniu decyzji o obsłudze. W kontekście medycznym oznacza to:
 
@@ -317,7 +343,7 @@ Fairness (sprawiedliwość) w systemie kolejkowania definiuje się jako równomi
 
 System implementuje **5-poziomową hierarchię priorytetów**, co zapewnia sprawiedliwość kliniczną, ale stwarza teoretyczne zagrożenie **starvation** dla pacjentów niskiego priorytetu.
 
-### 6.2 Problem Starvation - Teoretyczne Nieobsłużenie Pacjentów
+### 7.2 Problem Starvation - Teoretyczne Nieobsłużenie Pacjentów
 
 **Starvation** to sytuacja w teorii szeregowania zadań, w której proces (pacjent) o niskim priorytecie nigdy nie otrzyma dostępu do zasobu (obsługi) z powodu ciągłej dominacji procesów o wyższych priorytetach.
 
@@ -340,7 +366,7 @@ Jest to **teoretyczne zagrożenie**, uwzględnione w analizie ryzyk projektu jak
 - W rzeczywistości: pacjent czeka, ale ostatecznie zostaje obsłużony
 - Aging to **rozwiązanie teoretyczne** na wypadek systemów o bardzo wysokiej dynamice priorytetów
 
-### 6.3 Mechanizm Aging - Teoretyczne Rozwiązanie Starvation
+### 7.3 Mechanizm Aging - Teoretyczne Rozwiązanie Starvation
 
 **Aging** to algorytmiczna technika, która dynamicznie podnosi priorytet procesu (pacjenta) w funkcji czasu oczekiwania w kolejce.
 
@@ -368,7 +394,7 @@ Pacjent niebieski (priorytet 1) z linear aging:
 
 ---
 
-**2. Logarytmiczny Aging** 
+**2. Logarytmiczna Aging** 
 
 **Charakterystyka**:
 - Wolniej rosnący priorytet
@@ -409,7 +435,7 @@ t=50s:  P = 1 · 1.05^50  ≈ 11.5
 | Logarytmiczna | Średnia | Średnia | Średnia | Rzadko |
 | Wykładnicza | Niska | Niska | Wysoka | Nie stosuje się |
 
-### 6.4 Analiza Teoretyczna - Kiedy Aging Jest Potrzebny?
+### 7.4 Analiza Teoretyczna - Kiedy Aging Jest Potrzebny?
 
 #### Warunki Zagrożenia Starvation
 
@@ -435,7 +461,7 @@ W(priorytet=1) → ∞ (czekają nieskończenie długo)
 P(t) = const (priorytet nie zmienia się z czasem)
 ```
 
-### 6.5 Teoretyczne Implikacje dla Systemu
+### 7.5 Teoretyczne Implikacje dla Systemu
 
 #### Plusy Wdrożenia Aging
 
@@ -451,9 +477,9 @@ P(t) = const (priorytet nie zmienia się z czasem)
 
 ---
 
-## 7. Analiza Kompromisów Implementacyjnych
+## 8. Analiza Kompromisów Implementacyjnych
 
-### 7.1 Analiza Decyzji: Latencja vs. Spójność Danych
+### 8.1 Analiza Decyzji: Latencja vs. Spójność Danych
 
 #### Problem: Race Condition przy Zmianie Priorytetu
 
@@ -490,7 +516,7 @@ Z OCHRONĄ (lock):
 
 W systemach medycznych **bezpieczeństwo >> wydajność**. Dodatkowe 500-550 ms latencji to akceptowalna cena za gwarancję spójności danych pacjentów.
 
-### 7.2 Analiza Decyzji: Wydajność vs. Bezpieczeństwo Operacyjne
+### 8.2 Analiza Decyzji: Wydajność vs. Bezpieczeństwo Operacyjne
 
 #### Problem: Zmiana Priorytetu w Szybkiej Sekwencji
 
@@ -515,7 +541,7 @@ Operatorzy czasem dostają HTTP 429, ale system zapobiega przypadkowemu "przepyc
 
 **WAŻNE**: Cooldown (429) to **NIE race condition** (409). To celowy mechanizm ochronny na poziomie aplikacji.
 
-### 7.3 Fairness a kompromisy implementacyjne
+### 8.3 Fairness a kompromisy implementacyjne
 
 #### Opóźnienia a spójność danych
 
@@ -529,9 +555,9 @@ Lock z Etapu 3 serializuje operacje na kolejce - gwarantuje spójność, ale zmn
 
 Jeśli zbyt agresywnie podnosimy priorytet pacjentów niskiego priorytetu, tracimy właściwość, dla której system powstał - szybką obsługę stanów zagrożenia życia. **Idealny system balansuje** między fairness a clinical urgency (stan zagrożenia zawsze wychodzi na przód).
 
-## 8. Które Kompromisy Są Dopuszczalne?
+## 9. Które Kompromisy Są Dopuszczalne?
 
-### 8.1 Macierz Akceptowalności
+### 9.1 Macierz Akceptowalności
 
 ```
 REGUŁA OGÓLNA:
@@ -541,7 +567,7 @@ REGUŁA OGÓLNA:
 └─────────────────────────────────────────────┘
 ```
 
-### 8.2 Szczegółowa Ocena
+### 9.2 Szczegółowa Ocena
 
 | Kompromis | Akceptowalny | Uzasadnienie |
 |-----------|-------------|-------------|
@@ -553,13 +579,13 @@ REGUŁA OGÓLNA:
 
 ---
 
-## 9. Wnioski
+## 10. Wnioski
 
 Projekt obejmował zaprojektowanie i implementację systemu kolejkowania pacjentów z priorytetami klinicznymi w środowisku webowym (Flask + SQLite), ze szczególnym uwzględnieniem zagadnień współbieżności, bezpieczeństwa danych i sprawiedliwości algorytmu. Każdy z czterech etapów wprowadzał nową warstwę złożoności i zmuszał do podejmowania świadomych decyzji implementacyjnych z myślą o potencjalnych kompromisach.
 
 ---
 
-### 9.1 Podsumowanie implementacji
+### 10.1 Podsumowanie implementacji
 
 System w finalnej wersji składa się z następujących komponentów:
 
@@ -578,7 +604,7 @@ Projekt przeszedł pełną ścieżkę od prostej kolejki FIFO (Etap 1), przez dy
 
 ---
 
-### 9.2 Najważniejsze decyzje implementacyjne
+### 10.2 Najważniejsze decyzje implementacyjne
 
 #### Decyzja 1: SQLite jako baza danych
 
@@ -612,7 +638,7 @@ Projekt przeszedł pełną ścieżkę od prostej kolejki FIFO (Etap 1), przez dy
 
 ---
 
-### 9.3 Podsumowanie
+### 10.3 Podsumowanie
 
 Projekt demonstruje, że systemy kolejkowania priorytetowego w medycynie są **nieproporcjonalnie trudniejsze** niż sugeruje ich pozorna prostota. Prosta kolejka FIFO z Etapu 1 zajmuje kilkanaście linii kodu - jednak zapewnienie jej poprawności przy wielu współbieżnych operatorach, gwarancja fairness i odporność na awarie to problemy, którym poświęca się osobne publikacje naukowe i które są aktywnym obszarem badań w informatyce stosowanej do ochrony zdrowia.
 
